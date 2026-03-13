@@ -74,7 +74,8 @@ if page == "Leaderboard":
 elif page == "Tournament Standings":
     st.header("Spring Round Robin")
     st.markdown("""
-    *Rules:* * Win = 3 Points
+    **Rules:** 
+    * Win = 3 Points
     * Draw = 1 Point
     * Loss = 0 Points
     """)
