@@ -71,8 +71,8 @@ if page == "Leaderboard":
         st.info("No matches played yet.")
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
-elif page == " Tournament Standings":
-    st.header(" Spring Round Robin")
+elif page == "Tournament Standings":
+    st.header("Spring Round Robin")
     
     # The aligned Markdown table for rules
     st.markdown("""
@@ -287,4 +287,3 @@ elif page == "Manage Data":
                 st.rerun()
         else:
             st.info("No matches to delete.")
-            
