@@ -28,7 +28,13 @@ players_df = conn.read(worksheet="players", ttl="10m").dropna(how="all")
 matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
 
 # Sidebar Navigation
-page = st.sidebar.radio("Navigation", ["Leaderboard", "Log a Match", "Add New Player"])
+page = st.sidebar.radio("Navigation", ["Leaderboard", "Log a Match", "Add New Player", "Manage Data"])
+
+# Refresh Data Button
+st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Refresh Data"):
+    st.cache_data.clear()
+    st.rerun()
 
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
@@ -79,37 +85,28 @@ elif page == "Log a Match":
                 if password != "dtu2026": 
                     st.error("Incorrect password!")
                 else:
-                    # Get current ELOs and Matches played
                     w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
                     b_idx = players_df.index[players_df['Name'] == black].tolist()[0]
                     
                     w_elo = float(players_df.at[w_idx, 'ELO'])
                     b_elo = float(players_df.at[b_idx, 'ELO'])
                     
-                    # Determine score multiplier
                     score = 1 if "White Wins" in result else (0.5 if "Draw" in result else 0)
-                    
-                    # Calculate new ELOs
                     new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
                     
-                    # Update Players DataFrame
                     players_df.at[w_idx, 'ELO'] = new_w_elo
                     players_df.at[w_idx, 'Matches'] = int(players_df.at[w_idx, 'Matches']) + 1
                     
                     players_df.at[b_idx, 'ELO'] = new_b_elo
                     players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
                     
-                    # Update Matches DataFrame
                     new_match = pd.DataFrame([{"White": white, "Black": black, "Result": result}])
                     updated_matches = pd.concat([matches_df, new_match], ignore_index=True)
                     
-                    # Push updates to Google Sheets
                     conn.update(worksheet="players", data=players_df)
                     conn.update(worksheet="matches", data=updated_matches)
                     
-                    # NUKE THE CACHE SO IT FETCHES FRESH DATA ON NEXT LOAD
                     st.cache_data.clear()
-                    
                     st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
 
 # --- PAGE 3: ADD PLAYER ---
@@ -122,7 +119,6 @@ elif page == "Add New Player":
         if new_name in players_df['Name'].values:
             st.error("Player already exists!")
         elif new_name:
-            # Create a new row
             new_player = pd.DataFrame([{
                 "Name": new_name, 
                 "ELO": starting_elo, 
@@ -130,11 +126,67 @@ elif page == "Add New Player":
                 "Creation Date": datetime.now().strftime("%Y-%m-%d")
             }])
             
-            # Append and update Google Sheet
             updated_players = pd.concat([players_df, new_player], ignore_index=True)
             conn.update(worksheet="players", data=updated_players)
             
-            # NUKE THE CACHE
             st.cache_data.clear()
-            
             st.success(f"Added {new_name} to the club with {starting_elo} ELO!")
+
+# --- PAGE 4: MANAGE DATA (CTRL+Z) ---
+elif page == "Manage Data":
+    st.header("🛠️ Manage Data")
+    st.write("Fix typos or delete mistakes here.")
+    
+    password = st.text_input("Club Password to unlock features", type="password")
+    
+    if password == "dtu2026":
+        st.markdown("---")
+        st.subheader("1. Rename a Player")
+        player_to_rename = st.selectbox("Select Player", players_df['Name'].tolist(), key="rename_select")
+        new_name = st.text_input("Type Correct Name")
+        
+        if st.button("Rename Player"):
+            if new_name and new_name not in players_df['Name'].values:
+                # Update in players_df
+                players_df.loc[players_df['Name'] == player_to_rename, 'Name'] = new_name
+                
+                # Update in matches_df
+                if not matches_df.empty:
+                    matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
+                    matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
+                
+                conn.update(worksheet="players", data=players_df)
+                conn.update(worksheet="matches", data=matches_df)
+                st.cache_data.clear()
+                st.success(f"Successfully renamed to {new_name}!")
+                st.rerun()
+            elif new_name in players_df['Name'].values:
+                st.error("That name already exists!")
+                
+        st.markdown("---")
+        st.subheader("2. Delete a Player")
+        player_to_delete = st.selectbox("Select Player", players_df['Name'].tolist(), key="delete_select")
+        
+        if st.button("Delete Player"):
+            players_df = players_df[players_df['Name'] != player_to_delete]
+            conn.update(worksheet="players", data=players_df)
+            st.cache_data.clear()
+            st.success(f"Deleted {player_to_delete}!")
+            st.rerun()
+
+        st.markdown("---")
+        st.subheader("3. Delete a Match Record")
+        if not matches_df.empty:
+            match_display = matches_df.apply(lambda row: f"{row['White']} vs {row['Black']} ({row['Result']})", axis=1).tolist()
+            match_to_delete_idx = st.selectbox("Select Match to Delete", range(len(match_display)), format_func=lambda x: match_display[x])
+            
+            st.warning("⚠️ Deleting a match removes it from the history table, but it DOES NOT reverse the ELO. You must fix their ELO manually in the Google Sheet.")
+            
+            if st.button("Delete Match"):
+                matches_df = matches_df.drop(matches_df.index[match_to_delete_idx])
+                conn.update(worksheet="matches", data=matches_df)
+                st.cache_data.clear()
+                st.success("Match deleted!")
+                st.rerun()
+        else:
+            st.info("No matches to delete.")
