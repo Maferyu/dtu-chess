@@ -23,9 +23,9 @@ st.title("♟️ DTU Chess Club Tracker")
 # Connect to Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Read data and drop empty rows
-players_df = conn.read(worksheet="players", ttl=0).dropna(how="all")
-matches_df = conn.read(worksheet="matches", ttl=0).dropna(how="all")
+# Read data with a 10-minute cache to prevent API limits
+players_df = conn.read(worksheet="players", ttl="10m").dropna(how="all")
+matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
 
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", ["Leaderboard", "Log a Match", "Add New Player"])
@@ -37,15 +37,23 @@ if page == "Leaderboard":
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
     else:
-        # Sort by ELO and display
+        # Sort by ELO and reset index for rank numbers
         leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
         leaderboard.index = leaderboard.index + 1
-        st.dataframe(leaderboard.style.format({'ELO': '{:.1f}'}), use_container_width=True)
+        
+        # Keep only the columns we want to show
+        leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
+        
+        # Display with specific formatting to fix the 0.0000 issue
+        st.dataframe(
+            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
+            width="stretch"
+        )
         
     st.subheader("Recent Matches")
     if not matches_df.empty:
         # Show last 5 matches reversed
-        st.dataframe(matches_df.iloc[::-1].head(5), use_container_width=True)
+        st.dataframe(matches_df.iloc[::-1].head(5), width="stretch")
     else:
         st.info("No matches played yet.")
 
@@ -68,7 +76,7 @@ elif page == "Log a Match":
             password = st.text_input("Club Password", type="password")
             
             if st.button("Submit Result"):
-                if password != "dtu2026": # The super secure club password
+                if password != "dtu2026": 
                     st.error("Incorrect password!")
                 else:
                     # Get current ELOs and Matches played
@@ -99,6 +107,9 @@ elif page == "Log a Match":
                     conn.update(worksheet="players", data=players_df)
                     conn.update(worksheet="matches", data=updated_matches)
                     
+                    # NUKE THE CACHE SO IT FETCHES FRESH DATA ON NEXT LOAD
+                    st.cache_data.clear()
+                    
                     st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
 
 # --- PAGE 3: ADD PLAYER ---
@@ -122,4 +133,8 @@ elif page == "Add New Player":
             # Append and update Google Sheet
             updated_players = pd.concat([players_df, new_player], ignore_index=True)
             conn.update(worksheet="players", data=updated_players)
+            
+            # NUKE THE CACHE
+            st.cache_data.clear()
+            
             st.success(f"Added {new_name} to the club with {starting_elo} ELO!")
