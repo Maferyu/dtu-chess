@@ -50,7 +50,7 @@ if page == "Leaderboard":
         # Keep only the columns we want to show
         leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
         
-        # Display with specific formatting to fix the 0.0000 issue
+        # Display with specific formatting
         st.dataframe(
             leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
             width="stretch"
@@ -58,8 +58,10 @@ if page == "Leaderboard":
         
     st.subheader("Recent Matches")
     if not matches_df.empty:
-        # Show last 5 matches reversed
-        st.dataframe(matches_df.iloc[::-1].head(5), width="stretch")
+        # Show last 5 matches reversed and fix the index to start at 1
+        recent_matches = matches_df.iloc[::-1].head(5).reset_index(drop=True)
+        recent_matches.index = recent_matches.index + 1
+        st.dataframe(recent_matches, width="stretch")
     else:
         st.info("No matches played yet.")
 
@@ -79,35 +81,32 @@ elif page == "Log a Match":
             st.error("A player cannot play against themselves!")
         else:
             result = st.radio("Result", ["White Wins (1-0)", "Draw (0.5-0.5)", "Black Wins (0-1)"])
-            password = st.text_input("Club Password", type="password")
             
+            # Removed the password check here so anyone can log a match
             if st.button("Submit Result"):
-                if password != "dtu2026": 
-                    st.error("Incorrect password!")
-                else:
-                    w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
-                    b_idx = players_df.index[players_df['Name'] == black].tolist()[0]
-                    
-                    w_elo = float(players_df.at[w_idx, 'ELO'])
-                    b_elo = float(players_df.at[b_idx, 'ELO'])
-                    
-                    score = 1 if "White Wins" in result else (0.5 if "Draw" in result else 0)
-                    new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
-                    
-                    players_df.at[w_idx, 'ELO'] = new_w_elo
-                    players_df.at[w_idx, 'Matches'] = int(players_df.at[w_idx, 'Matches']) + 1
-                    
-                    players_df.at[b_idx, 'ELO'] = new_b_elo
-                    players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
-                    
-                    new_match = pd.DataFrame([{"White": white, "Black": black, "Result": result}])
-                    updated_matches = pd.concat([matches_df, new_match], ignore_index=True)
-                    
-                    conn.update(worksheet="players", data=players_df)
-                    conn.update(worksheet="matches", data=updated_matches)
-                    
-                    st.cache_data.clear()
-                    st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
+                w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
+                b_idx = players_df.index[players_df['Name'] == black].tolist()[0]
+                
+                w_elo = float(players_df.at[w_idx, 'ELO'])
+                b_elo = float(players_df.at[b_idx, 'ELO'])
+                
+                score = 1 if "White Wins" in result else (0.5 if "Draw" in result else 0)
+                new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
+                
+                players_df.at[w_idx, 'ELO'] = new_w_elo
+                players_df.at[w_idx, 'Matches'] = int(players_df.at[w_idx, 'Matches']) + 1
+                
+                players_df.at[b_idx, 'ELO'] = new_b_elo
+                players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
+                
+                new_match = pd.DataFrame([{"White": white, "Black": black, "Result": result}])
+                updated_matches = pd.concat([matches_df, new_match], ignore_index=True)
+                
+                conn.update(worksheet="players", data=players_df)
+                conn.update(worksheet="matches", data=updated_matches)
+                
+                st.cache_data.clear()
+                st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
 
 # --- PAGE 3: ADD PLAYER ---
 elif page == "Add New Player":
@@ -147,10 +146,8 @@ elif page == "Manage Data":
         
         if st.button("Rename Player"):
             if new_name and new_name not in players_df['Name'].values:
-                # Update in players_df
                 players_df.loc[players_df['Name'] == player_to_rename, 'Name'] = new_name
                 
-                # Update in matches_df
                 if not matches_df.empty:
                     matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
                     matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
