@@ -24,8 +24,8 @@ st.title("♟️ DTU Chess Club Tracker")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Read data and drop empty rows
-players_df = conn.read(worksheet="players").dropna(how="all")
-matches_df = conn.read(worksheet="matches").dropna(how="all")
+players_df = conn.read(worksheet="players", ttl=0).dropna(how="all")
+matches_df = conn.read(worksheet="matches", ttl=0).dropna(how="all")
 
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", ["Leaderboard", "Log a Match", "Add New Player"])
