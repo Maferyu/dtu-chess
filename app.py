@@ -71,58 +71,92 @@ if page == "Leaderboard":
         st.info("No matches played yet.")
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
-elif page == "Tournament Standings":
-    st.header("Spring Round Robin")
-    st.markdown("""
-    **Rules:** 
-    * Win = 3 Points
-    * Draw = 1 Point
-    * Loss = 0 Points
-    """)
+elif page == " Tournament Standings":
+    st.header(" Spring Round Robin")
     
-    if matches_df.empty or "Event" not in matches_df.columns:
-        st.info("No tournament matches recorded yet.")
-    else:
-        tourney_matches = matches_df[matches_df["Event"] == "Spring Round Robin"]
-        
-        if tourney_matches.empty:
-            st.info("The Spring Round Robin hasn't started yet! Log a match under this event to see standings.")
+    # The aligned Markdown table for rules
+    st.markdown("""
+    **Rules:**
+    | Result | Points |
+    | :--- | :--- |
+    | **Win** | 3 |
+    | **Draw** | 1 |
+    | **Loss** | 0 |
+    """)
+    st.markdown("---")
+    
+    # Create sub-tabs for the Tournament page
+    tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups (Simulator)"])
+    
+    # --- TAB 1: THE STANDINGS ---
+    with tab_standings:
+        if matches_df.empty or "Event" not in matches_df.columns:
+            st.info("No tournament matches recorded yet.")
         else:
-            # Calculate 3-1-0 points
-            points = {}
-            played = {}
+            tourney_matches = matches_df[matches_df["Event"] == "Spring Round Robin"]
             
-            for idx, row in tourney_matches.iterrows():
-                w = row["White"]
-                b = row["Black"]
-                res = row["Result"]
+            if tourney_matches.empty:
+                st.info("The Spring Round Robin hasn't started yet! Log a match under this event to see standings.")
+            else:
+                points = {}
+                played = {}
                 
-                if w not in points: points[w] = 0; played[w] = 0
-                if b not in points: points[b] = 0; played[b] = 0
-                
-                played[w] += 1
-                played[b] += 1
-                
-                if "1-0" in res:     # White wins
-                    points[w] += 3
-                elif "0-1" in res:   # Black wins
-                    points[b] += 3
-                else:                # Draw
-                    points[w] += 1
-                    points[b] += 1
+                for idx, row in tourney_matches.iterrows():
+                    w = row["White"]
+                    b = row["Black"]
+                    res = row["Result"]
                     
-            # Build Tournament DataFrame
-            tourney_df = pd.DataFrame({
-                "Player": list(points.keys()),
-                "Points": list(points.values()),
-                "Matches Played": [played[p] for p in points.keys()]
-            })
+                    if w not in points: points[w] = 0; played[w] = 0
+                    if b not in points: points[b] = 0; played[b] = 0
+                    
+                    played[w] += 1
+                    played[b] += 1
+                    
+                    if "1-0" in res:     points[w] += 3
+                    elif "0-1" in res:   points[b] += 3
+                    else:                points[w] += 1; points[b] += 1
+                        
+                tourney_df = pd.DataFrame({
+                    "Player": list(points.keys()),
+                    "Points": list(points.values()),
+                    "Matches Played": [played[p] for p in points.keys()]
+                })
+                
+                tourney_df = tourney_df.sort_values(by=["Points", "Matches Played"], ascending=[False, True]).reset_index(drop=True)
+                tourney_df.index = tourney_df.index + 1
+                
+                st.dataframe(tourney_df, width="stretch")
+
+    # --- TAB 2: THE SCHEDULE GENERATOR ---
+    with tab_schedule:
+        st.write("Theoretical matchups based on currently registered players.")
+        
+        players = players_df['Name'].tolist()
+        
+        # If there are less than 2 players, we can't make a schedule
+        if len(players) < 2:
+            st.warning("Not enough players to generate a schedule.")
+        else:
+            # The Circle Method requires an even number of players
+            if len(players) % 2 != 0:
+                players.append("- BYE (Rest Week) -")
+                
+            n = len(players)
+            return_players = list(players)
             
-            # Sort by highest points. Tiebreaker: fewest matches played
-            tourney_df = tourney_df.sort_values(by=["Points", "Matches Played"], ascending=[False, True]).reset_index(drop=True)
-            tourney_df.index = tourney_df.index + 1
-            
-            st.dataframe(tourney_df, width="stretch")
+            # Generate the weeks
+            for fixture in range(1, n):
+                st.subheader(f"Week {fixture}")
+                
+                # Pair them up
+                for i in range(n // 2):
+                    p1 = return_players[i]
+                    p2 = return_players[n - 1 - i]
+                    st.markdown(f"♟️ **{p1}** vs **{p2}**")
+                
+                # Rotate the array for the next week (keeping the first player fixed)
+                return_players.insert(1, return_players.pop())
+                st.divider()
 
 # --- PAGE 3: LOG A MATCH ---
 elif page == "Log a Match":
