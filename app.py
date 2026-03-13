@@ -30,7 +30,7 @@ matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", [
     "Leaderboard", 
-    "🏆 Tournament Standings", 
+    "Tournament Standings", 
     "Log a Match", 
     "Add New Player", 
     "Manage Data"
@@ -71,10 +71,10 @@ if page == "Leaderboard":
         st.info("No matches played yet.")
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
-elif page == "🏆 Tournament Standings":
-    st.header("🏆 Spring Round Robin")
+elif page == "Tournament Standings":
+    st.header("Spring Round Robin")
     st.markdown("""
-    **Rules:** * Win = 3 Points
+    *Rules:* * Win = 3 Points
     * Draw = 1 Point
     * Loss = 0 Points
     """)
