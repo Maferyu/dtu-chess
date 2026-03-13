@@ -3,6 +3,7 @@ import pandas as pd
 import math
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
+import uuid
 
 # --- ELO LOGIC ---
 def calculate_elo(r_white, r_black, score_white):
@@ -18,6 +19,16 @@ def calculate_elo(r_white, r_black, score_white):
 
 # --- UI & DATABASE SETUP ---
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
+
+# Custom CSS to increase sidebar navigation spacing
+st.markdown("""
+    <style>
+    div[role="radiogroup"] > label {
+        margin-bottom: 12px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("♟️ DTU Chess Club Tracker")
 
 # Connect to Google Sheets
@@ -26,12 +37,14 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # Read data with a 10-minute cache to prevent API limits
 players_df = conn.read(worksheet="players", ttl="10m").dropna(how="all")
 matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
+posts_df = conn.read(worksheet="posts", ttl="10m").dropna(how="all")
 
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", [
     "Leaderboard", 
     "Tournament Standings", 
     "Log a Match", 
+    "Community Board",
     "Add New Player", 
     "Manage Data"
 ])
@@ -49,11 +62,8 @@ if page == "Leaderboard":
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
     else:
-        # Sort by ELO and reset index for rank numbers
         leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
         leaderboard.index = leaderboard.index + 1
-        
-        # Keep only the columns we want to show
         leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
         
         st.dataframe(
@@ -64,8 +74,7 @@ if page == "Leaderboard":
     st.subheader("Recent Matches")
     if not matches_df.empty:
         recent_matches = matches_df.copy()
-        recent_matches.index = recent_matches.index + 1 # Match 1, 2, 3...
-        # Flip upside down and take top 5
+        recent_matches.index = recent_matches.index + 1
         st.dataframe(recent_matches.iloc[::-1].head(5), width="stretch")
     else:
         st.info("No matches played yet.")
@@ -74,7 +83,6 @@ if page == "Leaderboard":
 elif page == "Tournament Standings":
     st.header("Spring Round Robin")
     
-    # The aligned Markdown table for rules
     st.markdown("""
     **Rules:**
     | Result | Points |
@@ -85,10 +93,8 @@ elif page == "Tournament Standings":
     """)
     st.markdown("---")
     
-    # Create sub-tabs for the Tournament page
     tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups (Simulator)"])
     
-    # --- TAB 1: THE STANDINGS ---
     with tab_standings:
         if matches_df.empty or "Event" not in matches_df.columns:
             st.info("No tournament matches recorded yet.")
@@ -127,34 +133,26 @@ elif page == "Tournament Standings":
                 
                 st.dataframe(tourney_df, width="stretch")
 
-    # --- TAB 2: THE SCHEDULE GENERATOR ---
     with tab_schedule:
         st.write("Theoretical matchups based on currently registered players.")
-        
         players = players_df['Name'].tolist()
         
-        # If there are less than 2 players, we can't make a schedule
         if len(players) < 2:
             st.warning("Not enough players to generate a schedule.")
         else:
-            # The Circle Method requires an even number of players
             if len(players) % 2 != 0:
                 players.append("- BYE (Rest Week) -")
                 
             n = len(players)
             return_players = list(players)
             
-            # Generate the weeks
             for fixture in range(1, n):
                 st.subheader(f"Week {fixture}")
-                
-                # Pair them up
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
                     st.markdown(f"♟️ **{p1}** vs **{p2}**")
                 
-                # Rotate the array for the next week (keeping the first player fixed)
                 return_players.insert(1, return_players.pop())
                 st.divider()
 
@@ -167,20 +165,29 @@ elif page == "Log a Match":
     else:
         player_names = players_df['Name'].tolist()
         
-        white = st.selectbox("White Player", player_names)
-        black = st.selectbox("Black Player", player_names, index=1 if len(player_names) > 1 else 0)
+        match_date = st.date_input("Date of the Match", datetime.now())
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            white = st.selectbox("White Player", player_names)
+        with col2:
+            black = st.selectbox("Black Player", player_names, index=1 if len(player_names) > 1 else 0)
         
         if white == black:
             st.error("A player cannot play against themselves!")
         else:
             result = st.radio("Result", ["White Wins (1-0)", "Draw (0.5-0.5)", "Black Wins (0-1)"])
-            event = st.selectbox("Event", ["Casual", "Spring Round Robin"])
+            
+            col3, col4 = st.columns(2)
+            with col3:
+                event = st.selectbox("Event", ["Casual", "Spring Round Robin"])
+            with col4:
+                time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
             
             if st.button("Submit Result"):
                 w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
                 b_idx = players_df.index[players_df['Name'] == black].tolist()[0]
                 
-                # Safely parse ELO, replacing European commas just in case
                 w_elo = float(str(players_df.at[w_idx, 'ELO']).replace(',', '.'))
                 b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
                 
@@ -194,11 +201,12 @@ elif page == "Log a Match":
                 players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
                 
                 new_match = pd.DataFrame([{
-                    "Date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "Date": match_date.strftime("%Y-%m-%d"),
                     "White": white, 
                     "Black": black, 
                     "Result": result,
-                    "Event": event
+                    "Event": event,
+                    "Time Control": time_control
                 }])
                 updated_matches = pd.concat([matches_df, new_match], ignore_index=True)
                 
@@ -208,7 +216,69 @@ elif page == "Log a Match":
                 st.cache_data.clear()
                 st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
 
-# --- PAGE 4: ADD PLAYER ---
+# --- PAGE 4: COMMUNITY BOARD ---
+elif page == "Community Board":
+    st.header("💬 Community Board")
+    st.write("Post club updates, challenge people, or talk trash (respectfully).")
+    
+    # Create new post
+    with st.expander("📝 Write a new post"):
+        if players_df.empty:
+            st.warning("Add players to the database first!")
+        else:
+            author = st.selectbox("Who are you?", players_df['Name'].tolist())
+            content = st.text_area("What's on your mind?")
+            if st.button("Post Message"):
+                if content:
+                    new_id = str(uuid.uuid4())[:8] # Generate a short random ID
+                    new_post = pd.DataFrame([{
+                        "ID": new_id, 
+                        "Author": author, 
+                        "Content": content, 
+                        "Likes": 0, 
+                        "Dislikes": 0, 
+                        "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    }])
+                    
+                    # Create empty df if sheet is blank to prevent concat errors
+                    if posts_df.empty:
+                        updated_posts = new_post
+                    else:
+                        updated_posts = pd.concat([posts_df, new_post], ignore_index=True)
+                        
+                    conn.update(worksheet="posts", data=updated_posts)
+                    st.cache_data.clear()
+                    st.success("Posted!")
+                    st.rerun()
+
+    st.markdown("---")
+    
+    # Display posts
+    if posts_df.empty:
+        st.info("No posts yet. Be the first to say hi!")
+    else:
+        # Loop through posts in reverse chronological order
+        for idx, row in posts_df.iloc[::-1].iterrows():
+            with st.container(border=True):
+                st.markdown(f"**{row['Author']}** • *{row['Date']}*")
+                st.write(row['Content'])
+                
+                col1, col2, col3 = st.columns([1, 1, 8])
+                
+                # We use the unique ID so Streamlit knows which button belongs to which post
+                if col1.button(f"👍 {int(row.get('Likes', 0))}", key=f"like_{row['ID']}"):
+                    posts_df.at[idx, 'Likes'] = int(posts_df.at[idx, 'Likes']) + 1
+                    conn.update(worksheet="posts", data=posts_df)
+                    st.cache_data.clear()
+                    st.rerun()
+                    
+                if col2.button(f"👎 {int(row.get('Dislikes', 0))}", key=f"dislike_{row['ID']}"):
+                    posts_df.at[idx, 'Dislikes'] = int(posts_df.at[idx, 'Dislikes']) + 1
+                    conn.update(worksheet="posts", data=posts_df)
+                    st.cache_data.clear()
+                    st.rerun()
+
+# --- PAGE 5: ADD PLAYER ---
 elif page == "Add New Player":
     st.header("Register New Player")
     new_name = st.text_input("Player Name")
@@ -231,7 +301,7 @@ elif page == "Add New Player":
             st.cache_data.clear()
             st.success(f"Added {new_name} to the club with {starting_elo} ELO!")
 
-# --- PAGE 5: MANAGE DATA ---
+# --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
     st.header("🛠️ Manage Data")
     st.write("Fix typos or delete mistakes here.")
@@ -252,8 +322,13 @@ elif page == "Manage Data":
                     matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
                     matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
                 
+                if not posts_df.empty:
+                    posts_df.loc[posts_df['Author'] == player_to_rename, 'Author'] = new_name
+                
                 conn.update(worksheet="players", data=players_df)
                 conn.update(worksheet="matches", data=matches_df)
+                if not posts_df.empty: conn.update(worksheet="posts", data=posts_df)
+                
                 st.cache_data.clear()
                 st.success(f"Successfully renamed to {new_name}!")
                 st.rerun()
