@@ -191,7 +191,7 @@ elif page == "Tournament Standings":
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
-                    st.markdown(f"♟️ **{p1}** vs **{p2}**")
+                    st.markdown(f"**{p1}** vs **{p2}**")
                 
                 return_players.insert(1, return_players.pop())
                 st.divider()
@@ -217,7 +217,7 @@ elif page == "Log a Match":
             st.error("A player cannot play against themselves!")
         else:
             # DYNAMIC RADIO BUTTONS!
-            result = st.radio("Result", [f"🏆 {p1_name} Wins", "🤝 Draw", f"🏆 {p2_name} Wins"])
+            result = st.radio("Result", [f"{p1_name} Wins", "Draw", f"{p2_name} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
@@ -233,7 +233,7 @@ elif page == "Log a Match":
                 p2_elo = float(str(players_df.at[p2_idx, 'ELO']).replace(',', '.'))
                 
                 # Check the dynamic string for the winner
-                score = 1 if result == f"🏆 {p1_name} Wins" else (0.5 if result == "🤝 Draw" else 0)
+                score = 1 if result == f"{p1_name} Wins" else (0.5 if result == "Draw" else 0)
                 new_p1_elo, new_p2_elo = calculate_elo(p1_elo, p2_elo, score)
                 
                 players_df.at[p1_idx, 'ELO'] = new_p1_elo
