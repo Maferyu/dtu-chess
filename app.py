@@ -22,32 +22,42 @@ st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
 # Custom CSS for Professional UI
 st.markdown("""
-<style>
-/* Increase sidebar spacing */
-div[role="radiogroup"] > label {
-    margin-bottom: 15px !important;
-    font-size: 1.1rem !important;
-}
-
-/* Style the tabs to look more like buttons */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 10px;
-}
-.stTabs [data-baseweb="tab"] {
-    height: 50px;
-    border-radius: 4px 4px 0px 0px;
-}
-</style>
+    <style>
+    /* Increase sidebar spacing */
+    div[role="radiogroup"] > label {
+        margin-bottom: 15px !important;
+        font-size: 1.1rem !important;
+    }
+    
+    /* Style the tabs to look more like buttons */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        border-radius: 4px 4px 0px 0px;
+    }
+    
+    /* HIDE THE ANNOYING HOVER ANCHOR LINKS */
+    a.header-anchor {
+        display: none !important;
+    }
+    .st-emotion-cache-11rso9w a {
+        display: none !important;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-# Custom Header with multiple larger pieces (No indentation to prevent Markdown code block issues!)
+# Custom Header with multiple larger pieces
 st.markdown("""
-<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
-    <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3.2rem; color: #1e1e1e;">DTU Chess Club</h1>
-    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
-</div>
-<div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
+        
+        <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3.2rem; color: inherit;">DTU Chess Club</h1>
+        
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
+    </div>
+    <div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
 """, unsafe_allow_html=True)
 
 # Connect to Google Sheets
@@ -76,25 +86,75 @@ if st.sidebar.button("🔄 Refresh Data"):
 
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
-    st.header("Global Standings")
+    
+    # Time Control Filter
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.header("Club Standings")
+    with col2:
+        tc_filter = st.selectbox("Category", ["All Matches (Global ELO)", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
     
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
     else:
-        leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
-        leaderboard.index = leaderboard.index + 1
-        leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
-        
-        st.dataframe(
-            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
-            width="stretch"
-        )
-        
+        if tc_filter == "All Matches (Global ELO)":
+            leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
+            leaderboard.index = leaderboard.index + 1
+            leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
+            st.dataframe(leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), width="stretch")
+        else:
+            # Dynamic ELO Calculation for specific Time Controls!
+            dynamic_elos = {name: 1200.0 for name in players_df['Name']}
+            dynamic_matches = {name: 0 for name in players_df['Name']}
+            
+            if not matches_df.empty and "Time Control" in matches_df.columns:
+                filtered_matches = matches_df[matches_df["Time Control"] == tc_filter]
+                
+                for idx, row in filtered_matches.iterrows():
+                    w = row["White"]
+                    b = row["Black"]
+                    res = row["Result"]
+                    
+                    if w not in dynamic_elos: dynamic_elos[w] = 1200.0; dynamic_matches[w] = 0
+                    if b not in dynamic_elos: dynamic_elos[b] = 1200.0; dynamic_matches[b] = 0
+                        
+                    score = 1 if "White Wins" in res else (0.5 if "Draw" in res else 0)
+                    new_w, new_b = calculate_elo(dynamic_elos[w], dynamic_elos[b], score)
+                    
+                    dynamic_elos[w] = new_w
+                    dynamic_matches[w] += 1
+                    dynamic_elos[b] = new_b
+                    dynamic_matches[b] += 1
+            
+            dyn_df = pd.DataFrame({
+                "Name": list(dynamic_elos.keys()),
+                "ELO": list(dynamic_elos.values()),
+                "Matches": list(dynamic_matches.values())
+            })
+            
+            # Only show players who have actually played this time control
+            dyn_df = dyn_df[dyn_df["Matches"] > 0]
+            
+            if dyn_df.empty:
+                st.info(f"No {tc_filter} matches have been logged yet.")
+            else:
+                dyn_df = dyn_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
+                dyn_df.index = dyn_df.index + 1
+                st.dataframe(dyn_df.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), width="stretch")
+
     st.subheader("Recent Matches")
     if not matches_df.empty:
         recent_matches = matches_df.copy()
-        recent_matches.index = recent_matches.index + 1
-        st.dataframe(recent_matches.iloc[::-1].head(5), width="stretch")
+        
+        # Filter the recent matches table too!
+        if tc_filter != "All Matches (Global ELO)" and "Time Control" in matches_df.columns:
+            recent_matches = recent_matches[recent_matches["Time Control"] == tc_filter]
+            
+        if recent_matches.empty:
+            st.info(f"No {tc_filter} matches played yet.")
+        else:
+            recent_matches.index = recent_matches.index + 1
+            st.dataframe(recent_matches.iloc[::-1].head(5), width="stretch")
     else:
         st.info("No matches played yet.")
 
