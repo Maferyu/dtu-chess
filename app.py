@@ -21,21 +21,13 @@ def calculate_elo(r_white, r_black, score_white):
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
 # Custom CSS for Professional UI
+# Custom CSS for Professional UI
 st.markdown("""
     <style>
     /* Increase sidebar spacing */
     div[role="radiogroup"] > label {
         margin-bottom: 15px !important;
         font-size: 1.1rem !important;
-    }
-    
-    /* Center and style the main title */
-    h1 {
-        text-align: center;
-        font-family: 'Georgia', serif;
-        border-bottom: 2px solid #990000;
-        padding-bottom: 10px;
-        margin-bottom: 30px;
     }
     
     /* Style the tabs to look more like buttons */
@@ -48,6 +40,20 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Custom Header with multiple larger pieces
+st.markdown("""
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/f/f1/Chess_ndt45.svg" width="80" style="margin-right: 15px;">
+        
+        <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3rem; color: #1e1e1e;">DTU Chess Club</h1>
+        
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px;">
+    </div>
+    <div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
+""", unsafe_allow_html=True)
+
+# Connect to Google Sheets
 
 # Clean, single centered title with Wikimedia logo
 st.markdown("""
