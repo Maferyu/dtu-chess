@@ -21,15 +21,49 @@ def calculate_elo(r_white, r_black, score_white):
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
 # Custom CSS to increase sidebar navigation spacing
+# Custom CSS for Professional UI
 st.markdown("""
     <style>
+    /* Subtle transparent chessboard background pattern */
+    .stApp {
+        background-color: #121212;
+        background-image: linear-gradient(45deg, #161616 25%, transparent 25%, transparent 75%, #161616 75%, #161616), 
+                          linear-gradient(45deg, #161616 25%, transparent 25%, transparent 75%, #161616 75%, #161616);
+        background-size: 60px 60px;
+        background-position: 0 0, 30px 30px;
+    }
+    
+    /* Increase sidebar spacing */
     div[role="radiogroup"] > label {
-        margin-bottom: 12px !important;
+        margin-bottom: 15px !important;
+        font-size: 1.1rem !important;
+    }
+    
+    /* Center and style the main title */
+    h1 {
+        text-align: center;
+        font-family: 'Georgia', serif;
+        border-bottom: 2px solid #990000;
+        padding-bottom: 10px;
+        margin-bottom: 30px;
+    }
+    
+    /* Style the tabs to look more like buttons */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        border-radius: 4px 4px 0px 0px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("♟️ DTU Chess Club Tracker")
+col1, col2, col3 = st.columns([1, 4, 1])
+with col2:
+    # Using a free, clean SVG icon from the web
+    st.image("https://www.svgrepo.com/show/207001/chess.svg", width=60)
+    st.title("DTU Chess Club Tracker")
 
 # Connect to Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -93,7 +127,7 @@ elif page == "Tournament Standings":
     """)
     st.markdown("---")
     
-    tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups (Simulator)"])
+    tab_standings, tab_schedule = st.tabs(["Standings", "Weekly Matchups (Simulator)"])
     
     with tab_standings:
         if matches_df.empty or "Event" not in matches_df.columns:
@@ -222,7 +256,7 @@ elif page == "Community Board":
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
     # Create new post
-    with st.expander("📝 Write a new post"):
+    with st.expander("Write a new post"):
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
