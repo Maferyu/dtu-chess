@@ -6,16 +6,16 @@ from streamlit_gsheets import GSheetsConnection
 import uuid
 
 # --- ELO LOGIC ---
-def calculate_elo(r_white, r_black, score_white):
-    e_white = 1 / (1 + math.pow(10, (r_black - r_white) / 400))
-    e_black = 1 / (1 + math.pow(10, (r_white - r_black) / 400))
+def calculate_elo(r_p1, r_p2, score_p1):
+    e_p1 = 1 / (1 + math.pow(10, (r_p2 - r_p1) / 400))
+    e_p2 = 1 / (1 + math.pow(10, (r_p1 - r_p2) / 400))
     
     k = 32 # Maximum point swing
     
-    new_r_white = r_white + k * (score_white - e_white)
-    new_r_black = r_black + k * ((1 - score_white) - e_black)
+    new_r_p1 = r_p1 + k * (score_p1 - e_p1)
+    new_r_p2 = r_p2 + k * ((1 - score_p1) - e_p2)
     
-    return round(new_r_white, 1), round(new_r_black, 1)
+    return round(new_r_p1, 1), round(new_r_p2, 1)
 
 # --- UI & DATABASE SETUP ---
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
@@ -143,19 +143,24 @@ elif page == "Tournament Standings":
                 played = {}
                 
                 for idx, row in tourney_matches.iterrows():
-                    w = row["White"]
-                    b = row["Black"]
+                    # Backwards compatibility check for older data
+                    p1 = row.get("Player 1", row.get("White"))
+                    p2 = row.get("Player 2", row.get("Black"))
                     res = row["Result"]
                     
-                    if w not in points: points[w] = 0; played[w] = 0
-                    if b not in points: points[b] = 0; played[b] = 0
+                    if p1 not in points: points[p1] = 0; played[p1] = 0
+                    if p2 not in points: points[p2] = 0; played[p2] = 0
                     
-                    played[w] += 1
-                    played[b] += 1
+                    played[p1] += 1
+                    played[p2] += 1
                     
-                    if "1-0" in res:     points[w] += 3
-                    elif "0-1" in res:   points[b] += 3
-                    else:                points[w] += 1; points[b] += 1
+                    # Logic updated to handle dynamic names AND old static data
+                    if f"{p1} Wins" in res or "1-0" in res or "White Wins" in res:
+                        points[p1] += 3
+                    elif f"{p2} Wins" in res or "0-1" in res or "Black Wins" in res:
+                        points[p2] += 3
+                    else:
+                        points[p1] += 1; points[p2] += 1
                         
                 tourney_df = pd.DataFrame({
                     "Player": list(points.keys()),
@@ -186,7 +191,7 @@ elif page == "Tournament Standings":
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
-                    st.markdown(f" **{p1}** vs **{p2}**")
+                    st.markdown(f"♟️ **{p1}** vs **{p2}**")
                 
                 return_players.insert(1, return_players.pop())
                 st.divider()
@@ -204,14 +209,15 @@ elif page == "Log a Match":
         
         col1, col2 = st.columns(2)
         with col1:
-            white = st.selectbox("White Player", player_names)
+            p1_name = st.selectbox("Player 1", player_names)
         with col2:
-            black = st.selectbox("Black Player", player_names, index=1 if len(player_names) > 1 else 0)
+            p2_name = st.selectbox("Player 2", player_names, index=1 if len(player_names) > 1 else 0)
         
-        if white == black:
+        if p1_name == p2_name:
             st.error("A player cannot play against themselves!")
         else:
-            result = st.radio("Result", ["White Wins (1-0)", "Draw (0.5-0.5)", "Black Wins (0-1)"])
+            # DYNAMIC RADIO BUTTONS!
+            result = st.radio("Result", [f"🏆 {p1_name} Wins", "🤝 Draw", f"🏆 {p2_name} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
@@ -220,26 +226,30 @@ elif page == "Log a Match":
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
             
             if st.button("Submit Result"):
-                w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
-                b_idx = players_df.index[players_df['Name'] == black].tolist()[0]
+                p1_idx = players_df.index[players_df['Name'] == p1_name].tolist()[0]
+                p2_idx = players_df.index[players_df['Name'] == p2_name].tolist()[0]
                 
-                w_elo = float(str(players_df.at[w_idx, 'ELO']).replace(',', '.'))
-                b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
+                p1_elo = float(str(players_df.at[p1_idx, 'ELO']).replace(',', '.'))
+                p2_elo = float(str(players_df.at[p2_idx, 'ELO']).replace(',', '.'))
                 
-                score = 1 if "White Wins" in result else (0.5 if "Draw" in result else 0)
-                new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
+                # Check the dynamic string for the winner
+                score = 1 if result == f"🏆 {p1_name} Wins" else (0.5 if result == "🤝 Draw" else 0)
+                new_p1_elo, new_p2_elo = calculate_elo(p1_elo, p2_elo, score)
                 
-                players_df.at[w_idx, 'ELO'] = new_w_elo
-                players_df.at[w_idx, 'Matches'] = int(players_df.at[w_idx, 'Matches']) + 1
+                players_df.at[p1_idx, 'ELO'] = new_p1_elo
+                players_df.at[p1_idx, 'Matches'] = int(players_df.at[p1_idx, 'Matches']) + 1
                 
-                players_df.at[b_idx, 'ELO'] = new_b_elo
-                players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
+                players_df.at[p2_idx, 'ELO'] = new_p2_elo
+                players_df.at[p2_idx, 'Matches'] = int(players_df.at[p2_idx, 'Matches']) + 1
+                
+                # Clean up the string for the database (remove emojis for cleaner history reading)
+                db_result = f"{p1_name} Wins" if score == 1 else ("Draw" if score == 0.5 else f"{p2_name} Wins")
                 
                 new_match = pd.DataFrame([{
                     "Date": match_date.strftime("%Y-%m-%d"),
-                    "White": white, 
-                    "Black": black, 
-                    "Result": result,
+                    "Player 1": p1_name, 
+                    "Player 2": p2_name, 
+                    "Result": db_result,
                     "Event": event,
                     "Time Control": time_control
                 }])
@@ -249,7 +259,7 @@ elif page == "Log a Match":
                 conn.update(worksheet="matches", data=updated_matches)
                 
                 st.cache_data.clear()
-                st.success(f"Match logged! {white} is now {new_w_elo} and {black} is now {new_b_elo}.")
+                st.success(f"Match logged! {p1_name} is now {new_p1_elo} and {p2_name} is now {new_p2_elo}.")
 
 # --- PAGE 4: COMMUNITY BOARD ---
 elif page == "Community Board":
@@ -352,8 +362,16 @@ elif page == "Manage Data":
                 players_df.loc[players_df['Name'] == player_to_rename, 'Name'] = new_name
                 
                 if not matches_df.empty:
-                    matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
-                    matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
+                    # Handle updating old columns just in case, plus new columns
+                    if 'White' in matches_df.columns:
+                        matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
+                        matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
+                    if 'Player 1' in matches_df.columns:
+                        matches_df.loc[matches_df['Player 1'] == player_to_rename, 'Player 1'] = new_name
+                        matches_df.loc[matches_df['Player 2'] == player_to_rename, 'Player 2'] = new_name
+                    
+                    # Update dynamic result strings if they contained the old name
+                    matches_df.loc[matches_df['Result'] == f"{player_to_rename} Wins", 'Result'] = f"{new_name} Wins"
                 
                 if not posts_df.empty:
                     posts_df.loc[posts_df['Author'] == player_to_rename, 'Author'] = new_name
@@ -382,7 +400,14 @@ elif page == "Manage Data":
         st.markdown("---")
         st.subheader("3. Delete a Match Record", anchor=False)
         if not matches_df.empty:
-            match_display = matches_df.apply(lambda row: f"Match {row.name + 1}: {row['White']} vs {row['Black']} ({row.get('Event', 'N/A')})", axis=1).tolist()
+            
+            # Helper to display older match data safely alongside new format
+            def format_match_row(row):
+                p1 = row.get('Player 1', row.get('White', 'Unknown'))
+                p2 = row.get('Player 2', row.get('Black', 'Unknown'))
+                return f"Match {row.name + 1}: {p1} vs {p2} ({row.get('Event', 'N/A')})"
+                
+            match_display = matches_df.apply(format_match_row, axis=1).tolist()
             match_to_delete_idx = st.selectbox("Select Match to Delete", range(len(match_display)), format_func=lambda x: match_display[x])
             
             st.warning("⚠️ Deleting a match removes it from the history table, but it DOES NOT reverse the ELO. You must fix their ELO manually in the Google Sheet.")
