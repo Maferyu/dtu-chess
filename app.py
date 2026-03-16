@@ -186,7 +186,7 @@ elif page == "Tournament Standings":
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
-                    st.markdown(f"♟️ **{p1}** vs **{p2}**")
+                    st.markdown(f" **{p1}** vs **{p2}**")
                 
                 return_players.insert(1, return_players.pop())
                 st.divider()
@@ -253,11 +253,11 @@ elif page == "Log a Match":
 
 # --- PAGE 4: COMMUNITY BOARD ---
 elif page == "Community Board":
-    st.header("💬 Community Board", anchor=False)
+    st.header("Community Board", anchor=False)
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
     # Create new post
-    with st.expander("📝 Write a new post"):
+    with st.expander("Write a new post"):
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
