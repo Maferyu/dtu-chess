@@ -128,7 +128,7 @@ elif page == "Tournament Standings":
     """)
     st.markdown("---")
     
-    tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups (Simulator)"])
+    tab_standings, tab_schedule = st.tabs(["Standings", "Weekly Matchups"])
     
     with tab_standings:
         if matches_df.empty or "Event" not in matches_df.columns:
