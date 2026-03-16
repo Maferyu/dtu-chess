@@ -40,7 +40,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Custom Header (Flattened to a single string to prevent Markdown Code Block errors)
+# Custom Header (Raw HTML ensures no annoying hover links)
 st.markdown(
     '<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">'
     '<img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
@@ -78,67 +78,34 @@ if st.sidebar.button("🔄 Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    # Time Control Filter
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.header("Club Standings", anchor=False)
-    with col2:
-        tc_filter = st.selectbox("Category", ["All Matches (Global ELO)", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+    # Using HTML headers entirely stops Streamlit from adding the hover 🔗 link
+    st.markdown("<h2 style='padding-top: 0px;'>Global Standings</h2>", unsafe_allow_html=True)
     
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
     else:
-        if tc_filter == "All Matches (Global ELO)":
-            leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
-            leaderboard.index = leaderboard.index + 1
-            leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
-            st.dataframe(leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), width="stretch")
-        else:
-            # Dynamic ELO Calculation for specific Time Controls
-            dynamic_elos = {name: 1200.0 for name in players_df['Name']}
-            dynamic_matches = {name: 0 for name in players_df['Name']}
-            
-            if not matches_df.empty and "Time Control" in matches_df.columns:
-                filtered_matches = matches_df[matches_df["Time Control"] == tc_filter]
-                
-                for idx, row in filtered_matches.iterrows():
-                    w = row["White"]
-                    b = row["Black"]
-                    res = row["Result"]
-                    
-                    if w not in dynamic_elos: dynamic_elos[w] = 1200.0; dynamic_matches[w] = 0
-                    if b not in dynamic_elos: dynamic_elos[b] = 1200.0; dynamic_matches[b] = 0
-                        
-                    score = 1 if "White Wins" in res else (0.5 if "Draw" in res else 0)
-                    new_w, new_b = calculate_elo(dynamic_elos[w], dynamic_elos[b], score)
-                    
-                    dynamic_elos[w] = new_w
-                    dynamic_matches[w] += 1
-                    dynamic_elos[b] = new_b
-                    dynamic_matches[b] += 1
-            
-            dyn_df = pd.DataFrame({
-                "Name": list(dynamic_elos.keys()),
-                "ELO": list(dynamic_elos.values()),
-                "Matches": list(dynamic_matches.values())
-            })
-            
-            # Only show players who have actually played this time control
-            dyn_df = dyn_df[dyn_df["Matches"] > 0]
-            
-            if dyn_df.empty:
-                st.info(f"No {tc_filter} matches have been logged yet.")
-            else:
-                dyn_df = dyn_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
-                dyn_df.index = dyn_df.index + 1
-                st.dataframe(dyn_df.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), width="stretch")
-
-    st.subheader("Recent Matches", anchor=False)
+        # General ELO for everyone
+        leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
+        leaderboard.index = leaderboard.index + 1
+        leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
+        
+        st.dataframe(
+            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
+            width="stretch"
+        )
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.markdown("<h2 style='padding-top: 0px;'>Recent Matches</h2>", unsafe_allow_html=True)
+    with col2:
+        # Filter ONLY applies to the match history table below
+        tc_filter = st.selectbox("Filter History", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+        
     if not matches_df.empty:
         recent_matches = matches_df.copy()
         
-        # Filter the recent matches table too!
-        if tc_filter != "All Matches (Global ELO)" and "Time Control" in matches_df.columns:
+        if tc_filter != "All Matches" and "Time Control" in matches_df.columns:
             recent_matches = recent_matches[recent_matches["Time Control"] == tc_filter]
             
         if recent_matches.empty:
@@ -151,7 +118,7 @@ if page == "Leaderboard":
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
 elif page == "Tournament Standings":
-    st.header("Spring Round Robin", anchor=False)
+    st.markdown("<h2>Spring Round Robin</h2>", unsafe_allow_html=True)
     
     st.markdown("""
     **Rules:**
@@ -217,7 +184,8 @@ elif page == "Tournament Standings":
             return_players = list(players)
             
             for fixture in range(1, n):
-                st.subheader(f"Week {fixture}", anchor=False)
+                # HTML subheader to avoid anchor links
+                st.markdown(f"<h3>Week {fixture}</h3>", unsafe_allow_html=True)
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
@@ -228,7 +196,7 @@ elif page == "Tournament Standings":
 
 # --- PAGE 3: LOG A MATCH ---
 elif page == "Log a Match":
-    st.header("Record a Result", anchor=False)
+    st.markdown("<h2>Record a Result</h2>", unsafe_allow_html=True)
     
     if len(players_df) < 2:
         st.warning("You need at least 2 players in the database to log a match.")
@@ -288,7 +256,7 @@ elif page == "Log a Match":
 
 # --- PAGE 4: COMMUNITY BOARD ---
 elif page == "Community Board":
-    st.header("💬 Community Board", anchor=False)
+    st.markdown("<h2>💬 Community Board</h2>", unsafe_allow_html=True)
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
     # Create new post
@@ -348,7 +316,7 @@ elif page == "Community Board":
 
 # --- PAGE 5: ADD PLAYER ---
 elif page == "Add New Player":
-    st.header("Register New Player", anchor=False)
+    st.markdown("<h2>Register New Player</h2>", unsafe_allow_html=True)
     new_name = st.text_input("Player Name")
     starting_elo = st.number_input("Starting ELO", value=1200)
     
@@ -371,14 +339,14 @@ elif page == "Add New Player":
 
 # --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
-    st.header("🛠️ Manage Data", anchor=False)
+    st.markdown("<h2>🛠️ Manage Data</h2>", unsafe_allow_html=True)
     st.write("Fix typos or delete mistakes here.")
     
     password = st.text_input("Club Password to unlock features", type="password")
     
     if password == "dtu2026":
         st.markdown("---")
-        st.subheader("1. Rename a Player", anchor=False)
+        st.markdown("<h3>1. Rename a Player</h3>", unsafe_allow_html=True)
         player_to_rename = st.selectbox("Select Player", players_df['Name'].tolist(), key="rename_select")
         new_name = st.text_input("Type Correct Name")
         
@@ -404,7 +372,7 @@ elif page == "Manage Data":
                 st.error("That name already exists!")
                 
         st.markdown("---")
-        st.subheader("2. Delete a Player", anchor=False)
+        st.markdown("<h3>2. Delete a Player</h3>", unsafe_allow_html=True)
         player_to_delete = st.selectbox("Select Player", players_df['Name'].tolist(), key="delete_select")
         
         if st.button("Delete Player"):
@@ -415,7 +383,7 @@ elif page == "Manage Data":
             st.rerun()
 
         st.markdown("---")
-        st.subheader("3. Delete a Match Record", anchor=False)
+        st.markdown("<h3>3. Delete a Match Record</h3>", unsafe_allow_html=True)
         if not matches_df.empty:
             match_display = matches_df.apply(lambda row: f"Match {row.name + 1}: {row['White']} vs {row['Black']} ({row.get('Event', 'N/A')})", axis=1).tolist()
             match_to_delete_idx = st.selectbox("Select Match to Delete", range(len(match_display)), format_func=lambda x: match_display[x])
