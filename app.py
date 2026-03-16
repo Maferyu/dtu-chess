@@ -71,7 +71,7 @@ page = st.sidebar.radio("Navigation", [
 
 # Refresh Data Button
 st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Refresh Data"):
+if st.sidebar.button("Refresh Data"):
     st.cache_data.clear()
     st.rerun()
 
@@ -336,7 +336,7 @@ elif page == "Add New Player":
 
 # --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
-    st.header("🛠️ Manage Data", anchor=False)
+    st.header("Manage Data", anchor=False)
     st.write("Fix typos or delete mistakes here.")
     
     password = st.text_input("Club Password to unlock features", type="password")
