@@ -21,7 +21,6 @@ def calculate_elo(r_white, r_black, score_white):
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
 # Custom CSS for Professional UI
-# Custom CSS for Professional UI
 st.markdown("""
     <style>
     /* Increase sidebar spacing */
@@ -42,26 +41,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Custom Header with multiple larger pieces
+# color: inherit ensures the text stays readable if they toggle dark mode!
 st.markdown("""
     <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/f/f1/Chess_ndt45.svg" width="80" style="margin-right: 15px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
         
-        <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3rem; color: #1e1e1e;">DTU Chess Club</h1>
+        <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3.2rem; color: inherit;">DTU Chess Club</h1>
         
-        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
     </div>
     <div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
 """, unsafe_allow_html=True)
-
-# Connect to Google Sheets
-
-# Clean, single centered title with Wikimedia logo
-st.markdown("""
-    <div style="text-align: center;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg" width="75">
-    </div>
-""", unsafe_allow_html=True)
-st.title("DTU Chess Club Tracker")
 
 # Connect to Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -81,8 +71,10 @@ page = st.sidebar.radio("Navigation", [
     "Manage Data"
 ])
 
-# Refresh Data Button
+# Theme Instructions & Refresh Button
 st.sidebar.markdown("---")
+st.sidebar.info("🌓 **Theme Toggle:**\nClick the **⋮** menu in the top right -> **Settings** -> **Theme** to switch between Light and Dark mode.")
+
 if st.sidebar.button("🔄 Refresh Data"):
     st.cache_data.clear()
     st.rerun()
@@ -125,7 +117,7 @@ elif page == "Tournament Standings":
     """)
     st.markdown("---")
     
-    tab_standings, tab_schedule = st.tabs(["Standings", "Weekly Matchups (Simulator)"])
+    tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups (Simulator)"])
     
     with tab_standings:
         if matches_df.empty or "Event" not in matches_df.columns:
@@ -254,7 +246,7 @@ elif page == "Community Board":
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
     # Create new post
-    with st.expander("Write a new post"):
+    with st.expander("📝 Write a new post"):
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
@@ -272,7 +264,6 @@ elif page == "Community Board":
                         "Date": datetime.now().strftime("%Y-%m-%d %H:%M")
                     }])
                     
-                    # Create empty df if sheet is blank to prevent concat errors
                     if posts_df.empty:
                         updated_posts = new_post
                     else:
@@ -297,7 +288,6 @@ elif page == "Community Board":
                 
                 col1, col2, col3 = st.columns([1, 1, 8])
                 
-                # We use the unique ID so Streamlit knows which button belongs to which post
                 if col1.button(f"👍 {int(row.get('Likes', 0))}", key=f"like_{row['ID']}"):
                     posts_df.at[idx, 'Likes'] = int(posts_df.at[idx, 'Likes']) + 1
                     conn.update(worksheet="posts", data=posts_df)
