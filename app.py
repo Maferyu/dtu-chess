@@ -43,9 +43,9 @@ st.markdown("""
 # Custom Header (Using <div> instead of <h1> completely prevents hover links!)
 st.markdown(
     '<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">'
-    '<img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
+    '<img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
     '<div style="margin: 0; padding: 0; font-family: \'Georgia\', serif; font-size: 3.2rem; font-weight: bold; color: #1e1e1e;">DTU Chess Club</div>'
-    '<img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
+    '<img src="https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
     '</div>'
     '<div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>',
     unsafe_allow_html=True
