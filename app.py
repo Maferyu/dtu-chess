@@ -20,7 +20,7 @@ def calculate_elo(r_white, r_black, score_white):
 # --- UI & DATABASE SETUP ---
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
-# Custom CSS for Professional UI (Dizzying background removed!)
+# Custom CSS for Professional UI
 st.markdown("""
     <style>
     /* Increase sidebar spacing */
@@ -49,21 +49,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Using standard HTML to ensure the logo never breaks
+# Clean, single centered title with Wikimedia logo
 st.markdown("""
     <div style="text-align: center;">
         <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg" width="75">
     </div>
 """, unsafe_allow_html=True)
 st.title("DTU Chess Club Tracker")
-
-# Connect to Google Sheets
-
-col1, col2, col3 = st.columns([1, 4, 1])
-with col2:
-    # Using a free, clean SVG icon from the web
-    st.image("https://www.svgrepo.com/show/207001/chess.svg", width=60)
-    st.title("DTU Chess Club Tracker")
 
 # Connect to Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
