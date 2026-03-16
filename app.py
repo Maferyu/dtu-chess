@@ -20,19 +20,9 @@ def calculate_elo(r_white, r_black, score_white):
 # --- UI & DATABASE SETUP ---
 st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
-# Custom CSS to increase sidebar navigation spacing
-# Custom CSS for Professional UI
+# Custom CSS for Professional UI (Dizzying background removed!)
 st.markdown("""
     <style>
-    /* Subtle transparent chessboard background pattern */
-    .stApp {
-        background-color: #121212;
-        background-image: linear-gradient(45deg, #161616 25%, transparent 25%, transparent 75%, #161616 75%, #161616), 
-                          linear-gradient(45deg, #161616 25%, transparent 25%, transparent 75%, #161616 75%, #161616);
-        background-size: 60px 60px;
-        background-position: 0 0, 30px 30px;
-    }
-    
     /* Increase sidebar spacing */
     div[role="radiogroup"] > label {
         margin-bottom: 15px !important;
@@ -58,6 +48,16 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Using standard HTML to ensure the logo never breaks
+st.markdown("""
+    <div style="text-align: center;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg" width="75">
+    </div>
+""", unsafe_allow_html=True)
+st.title("DTU Chess Club Tracker")
+
+# Connect to Google Sheets
 
 col1, col2, col3 = st.columns([1, 4, 1])
 with col2:
