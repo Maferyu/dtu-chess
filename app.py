@@ -40,11 +40,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Custom Header (Raw HTML ensures no annoying hover links)
+# Custom Header (Using <div> instead of <h1> completely prevents hover links!)
 st.markdown(
     '<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">'
     '<img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
-    '<h1 style="margin: 0; padding: 0; font-family: \'Georgia\', serif; font-size: 3.2rem; color: #1e1e1e;">DTU Chess Club</h1>'
+    '<div style="margin: 0; padding: 0; font-family: \'Georgia\', serif; font-size: 3.2rem; font-weight: bold; color: #1e1e1e;">DTU Chess Club</div>'
     '<img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">'
     '</div>'
     '<div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>',
@@ -78,8 +78,11 @@ if st.sidebar.button("🔄 Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    # Using HTML headers entirely stops Streamlit from adding the hover 🔗 link
-    st.markdown("<h2 style='padding-top: 0px;'>Global Standings</h2>", unsafe_allow_html=True)
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        st.header("Club Standings", anchor=False)
+    with col2:
+        tc_filter = st.selectbox("Filter History", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
     
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
@@ -95,12 +98,7 @@ if page == "Leaderboard":
         )
         
     st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown("<h2 style='padding-top: 0px;'>Recent Matches</h2>", unsafe_allow_html=True)
-    with col2:
-        # Filter ONLY applies to the match history table below
-        tc_filter = st.selectbox("Filter History", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+    st.header("Recent Matches", anchor=False)
         
     if not matches_df.empty:
         recent_matches = matches_df.copy()
@@ -118,7 +116,7 @@ if page == "Leaderboard":
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
 elif page == "Tournament Standings":
-    st.markdown("<h2>Spring Round Robin</h2>", unsafe_allow_html=True)
+    st.header("Spring Round Robin", anchor=False)
     
     st.markdown("""
     **Rules:**
@@ -184,8 +182,7 @@ elif page == "Tournament Standings":
             return_players = list(players)
             
             for fixture in range(1, n):
-                # HTML subheader to avoid anchor links
-                st.markdown(f"<h3>Week {fixture}</h3>", unsafe_allow_html=True)
+                st.subheader(f"Week {fixture}", anchor=False)
                 for i in range(n // 2):
                     p1 = return_players[i]
                     p2 = return_players[n - 1 - i]
@@ -196,7 +193,7 @@ elif page == "Tournament Standings":
 
 # --- PAGE 3: LOG A MATCH ---
 elif page == "Log a Match":
-    st.markdown("<h2>Record a Result</h2>", unsafe_allow_html=True)
+    st.header("Record a Result", anchor=False)
     
     if len(players_df) < 2:
         st.warning("You need at least 2 players in the database to log a match.")
@@ -256,7 +253,7 @@ elif page == "Log a Match":
 
 # --- PAGE 4: COMMUNITY BOARD ---
 elif page == "Community Board":
-    st.markdown("<h2>💬 Community Board</h2>", unsafe_allow_html=True)
+    st.header("💬 Community Board", anchor=False)
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
     # Create new post
@@ -316,7 +313,7 @@ elif page == "Community Board":
 
 # --- PAGE 5: ADD PLAYER ---
 elif page == "Add New Player":
-    st.markdown("<h2>Register New Player</h2>", unsafe_allow_html=True)
+    st.header("Register New Player", anchor=False)
     new_name = st.text_input("Player Name")
     starting_elo = st.number_input("Starting ELO", value=1200)
     
@@ -339,14 +336,14 @@ elif page == "Add New Player":
 
 # --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
-    st.markdown("<h2>🛠️ Manage Data</h2>", unsafe_allow_html=True)
+    st.header("🛠️ Manage Data", anchor=False)
     st.write("Fix typos or delete mistakes here.")
     
     password = st.text_input("Club Password to unlock features", type="password")
     
     if password == "dtu2026":
         st.markdown("---")
-        st.markdown("<h3>1. Rename a Player</h3>", unsafe_allow_html=True)
+        st.subheader("1. Rename a Player", anchor=False)
         player_to_rename = st.selectbox("Select Player", players_df['Name'].tolist(), key="rename_select")
         new_name = st.text_input("Type Correct Name")
         
@@ -372,7 +369,7 @@ elif page == "Manage Data":
                 st.error("That name already exists!")
                 
         st.markdown("---")
-        st.markdown("<h3>2. Delete a Player</h3>", unsafe_allow_html=True)
+        st.subheader("2. Delete a Player", anchor=False)
         player_to_delete = st.selectbox("Select Player", players_df['Name'].tolist(), key="delete_select")
         
         if st.button("Delete Player"):
@@ -383,7 +380,7 @@ elif page == "Manage Data":
             st.rerun()
 
         st.markdown("---")
-        st.markdown("<h3>3. Delete a Match Record</h3>", unsafe_allow_html=True)
+        st.subheader("3. Delete a Match Record", anchor=False)
         if not matches_df.empty:
             match_display = matches_df.apply(lambda row: f"Match {row.name + 1}: {row['White']} vs {row['Black']} ({row.get('Event', 'N/A')})", axis=1).tolist()
             match_to_delete_idx = st.selectbox("Select Match to Delete", range(len(match_display)), format_func=lambda x: match_display[x])
