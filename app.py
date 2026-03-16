@@ -22,35 +22,32 @@ st.set_page_config(page_title="DTU Chess Club", page_icon="♟️")
 
 # Custom CSS for Professional UI
 st.markdown("""
-    <style>
-    /* Increase sidebar spacing */
-    div[role="radiogroup"] > label {
-        margin-bottom: 15px !important;
-        font-size: 1.1rem !important;
-    }
-    
-    /* Style the tabs to look more like buttons */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        border-radius: 4px 4px 0px 0px;
-    }
-    </style>
+<style>
+/* Increase sidebar spacing */
+div[role="radiogroup"] > label {
+    margin-bottom: 15px !important;
+    font-size: 1.1rem !important;
+}
+
+/* Style the tabs to look more like buttons */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+}
+.stTabs [data-baseweb="tab"] {
+    height: 50px;
+    border-radius: 4px 4px 0px 0px;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# Custom Header with multiple larger pieces
-# color: inherit ensures the text stays readable if they toggle dark mode!
+# Custom Header with multiple larger pieces (No indentation to prevent Markdown code block issues!)
 st.markdown("""
-    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
-        
-        <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3.2rem; color: inherit;">DTU Chess Club</h1>
-        
-        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
-    </div>
-    <div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
+<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg" width="80" style="margin-right: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
+    <h1 style="margin: 0; padding: 0; font-family: 'Georgia', serif; font-size: 3.2rem; color: #1e1e1e;">DTU Chess Club</h1>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg" width="65" style="margin-left: 15px; filter: drop-shadow(0px 0px 3px rgba(150,150,150,0.5));">
+</div>
+<div style="width: 100%; height: 2px; background-color: #990000; margin-bottom: 35px;"></div>
 """, unsafe_allow_html=True)
 
 # Connect to Google Sheets
@@ -71,10 +68,8 @@ page = st.sidebar.radio("Navigation", [
     "Manage Data"
 ])
 
-# Theme Instructions & Refresh Button
+# Refresh Data Button
 st.sidebar.markdown("---")
-st.sidebar.info("🌓 **Theme Toggle:**\nClick the **⋮** menu in the top right -> **Settings** -> **Theme** to switch between Light and Dark mode.")
-
 if st.sidebar.button("🔄 Refresh Data"):
     st.cache_data.clear()
     st.rerun()
