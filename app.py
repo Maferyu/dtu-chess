@@ -65,7 +65,7 @@ try:
     events_list = events_df['Event Name'].tolist()
 except Exception:
     # Fallback just in case the Google Sheet tab hasn't been created yet
-    events_df = pd.DataFrame(columns=["Event Name"])
+    events_df = pd.DataFrame(columns=["Event Name", "Creation Date"])
     events_list = ["Casual", "Spring Round Robin"]
 
 # Sidebar Navigation
@@ -144,8 +144,8 @@ if page == "Leaderboard":
 elif page == "Tournament Standings":
     st.markdown("<h2>Tournament Standings</h2>", unsafe_allow_html=True)
     
-    # Filter out Casual games so we only show real tournaments
-    tourney_options = [e for e in events_list if e != "Casual"]
+    # Filter out Casual games, and REVERSE the list so the newest event is at the top/default
+    tourney_options = [e for e in events_list if e != "Casual"][::-1]
     
     if not tourney_options:
         st.info("No tournaments have been created yet. Go to 'Manage Data' to add one!")
@@ -252,8 +252,8 @@ elif page == "Log a Match":
             
             col3, col4 = st.columns(2)
             with col3:
-                # Dynamically loads events from the database
-                event = st.selectbox("Event", events_list)
+                # Reversing the events list here too, so the newest event is always at the top!
+                event = st.selectbox("Event", events_list[::-1])
             with col4:
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
                 
@@ -385,7 +385,11 @@ elif page == "Manage Data":
         
         if st.button("Create Event"):
             if new_event and new_event not in events_list:
-                new_event_df = pd.DataFrame([{"Event Name": new_event}])
+                # Now automatically includes the date and time of creation
+                new_event_df = pd.DataFrame([{
+                    "Event Name": new_event,
+                    "Creation Date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                }])
                 
                 if events_df.empty:
                     updated_events = new_event_df
