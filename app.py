@@ -18,7 +18,7 @@ def calculate_elo(r_white, r_black, score_white):
     return round(new_r_white, 1), round(new_r_black, 1)
 
 # --- UI & DATABASE SETUP ---
-st.set_page_config(page_title="DTU Chess Club", page_icon="♟️", layout="wide")
+st.set_page_config(page_title="DTU Chess Club", page_icon="DTU", layout="wide")
 
 # Custom CSS for Professional UI
 st.markdown("""
@@ -80,7 +80,7 @@ page = st.sidebar.radio("Navigation", [
 
 # Refresh Data Button
 st.sidebar.markdown("---")
-if st.sidebar.button("🔄 Refresh Data"):
+if st.sidebar.button("Refresh Data"):
     st.cache_data.clear()
     st.rerun()
 
@@ -105,10 +105,10 @@ if page == "Leaderboard":
         # General ELO for everyone
         leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
         leaderboard.index = leaderboard.index + 1
-        leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
+        leaderboard = leaderboard[['Name', 'ELO']]
         
         st.dataframe(
-            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
+            leaderboard.style.format({'ELO': '{:.1f}'}), 
             use_container_width=True
         )
         
@@ -162,7 +162,7 @@ elif page == "Tournament Standings":
         """)
         st.markdown("---")
         
-        tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups"])
+        tab_standings, tab_schedule = st.tabs(["Standings", "Weekly Matchups"])
         
         with tab_standings:
             if matches_df.empty or "Event" not in matches_df.columns:
@@ -197,10 +197,10 @@ elif page == "Tournament Standings":
                     tourney_df = pd.DataFrame({
                         "Player": list(points.keys()),
                         "Points": list(points.values()),
-                        "Matches Played": [played[p] for p in points.keys()]
+                        "Games Played": [played[p] for p in points.keys()]
                     })
                     
-                    tourney_df = tourney_df.sort_values(by=["Points", "Matches Played"], ascending=[False, True]).reset_index(drop=True)
+                    tourney_df = tourney_df.sort_values(by=["Points", "Games Played"], ascending=[False, True]).reset_index(drop=True)
                     tourney_df.index = tourney_df.index + 1
                     
                     st.dataframe(tourney_df, use_container_width=True)
@@ -223,7 +223,7 @@ elif page == "Tournament Standings":
                     for i in range(n // 2):
                         p1 = return_players[i]
                         p2 = return_players[n - 1 - i]
-                        st.markdown(f"♟️ **{p1}** vs **{p2}**")
+                        st.markdown(f"**{p1}** vs **{p2}**")
                     
                     return_players.insert(1, return_players.pop())
                     st.divider()
@@ -248,7 +248,7 @@ elif page == "Log a Match":
         if white == black:
             st.error("A player cannot play against themselves!")
         else:
-            result = st.radio("Result", [f"⚪ {white} Wins", "🤝 Draw", f"⚫ {black} Wins"])
+            result = st.radio("Result", [f"{white} Wins", "Draw", f"{black} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
@@ -266,14 +266,11 @@ elif page == "Log a Match":
                 w_elo = float(str(players_df.at[w_idx, 'ELO']).replace(',', '.'))
                 b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
                 
-                score = 1 if result == f"⚪ {white} Wins" else (0.5 if result == "🤝 Draw" else 0)
+                score = 1 if result == f"{white} Wins" else (0.5 if result == "Draw" else 0)
                 new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
                 
                 players_df.at[w_idx, 'ELO'] = new_w_elo
-                players_df.at[w_idx, 'Matches'] = int(players_df.at[w_idx, 'Matches']) + 1
-                
                 players_df.at[b_idx, 'ELO'] = new_b_elo
-                players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
                 
                 db_result = f"{white} Wins" if score == 1 else ("Draw" if score == 0.5 else f"{black} Wins")
                 
@@ -296,10 +293,10 @@ elif page == "Log a Match":
 
 # --- PAGE 4: COMMUNITY BOARD ---
 elif page == "Community Board":
-    st.markdown("<h2>💬 Community Board</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>Community Board</h2>", unsafe_allow_html=True)
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
-    with st.expander("📝 Write a new post"):
+    with st.expander("Write a new post"):
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
@@ -339,13 +336,13 @@ elif page == "Community Board":
                 
                 col1, col2, col3 = st.columns([1, 1, 8])
                 
-                if col1.button(f"👍 {int(row.get('Likes', 0))}", key=f"like_{row['ID']}"):
+                if col1.button(f"Upvote ({int(row.get('Likes', 0))})", key=f"like_{row['ID']}"):
                     posts_df.at[idx, 'Likes'] = int(posts_df.at[idx, 'Likes']) + 1
                     conn.update(worksheet="posts", data=posts_df)
                     st.cache_data.clear()
                     st.rerun()
                     
-                if col2.button(f"👎 {int(row.get('Dislikes', 0))}", key=f"dislike_{row['ID']}"):
+                if col2.button(f"Downvote ({int(row.get('Dislikes', 0))})", key=f"dislike_{row['ID']}"):
                     posts_df.at[idx, 'Dislikes'] = int(posts_df.at[idx, 'Dislikes']) + 1
                     conn.update(worksheet="posts", data=posts_df)
                     st.cache_data.clear()
@@ -364,7 +361,6 @@ elif page == "Add New Player":
             new_player = pd.DataFrame([{
                 "Name": new_name, 
                 "ELO": starting_elo, 
-                "Matches": 0, 
                 "Creation Date": datetime.now().strftime("%Y-%m-%d")
             }])
             
@@ -376,7 +372,7 @@ elif page == "Add New Player":
 
 # --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
-    st.markdown("<h2>🛠️ Manage Data</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>Manage Data</h2>", unsafe_allow_html=True)
     st.write("Fix typos, delete mistakes, or create new events here.")
     
     password = st.text_input("Club Password to unlock features", type="password")
@@ -456,7 +452,7 @@ elif page == "Manage Data":
             match_display = matches_df.apply(format_match_row, axis=1).tolist()
             match_to_delete_idx = st.selectbox("Select Match to Delete", range(len(match_display)), format_func=lambda x: match_display[x])
             
-            st.warning("⚠️ Deleting a match removes it from the history table, but it DOES NOT reverse the ELO. You must fix their ELO manually in the Google Sheet.")
+            st.warning("Deleting a match removes it from the history table, but it DOES NOT reverse the ELO. You must fix their ELO manually in the Google Sheet.")
             
             if st.button("Delete Match"):
                 matches_df = matches_df.drop(matches_df.index[match_to_delete_idx])
