@@ -221,8 +221,7 @@ elif page == "Log a Match":
         if white == black:
             st.error("A player cannot play against themselves!")
         else:
-            # DYNAMIC RADIO BUTTONS WITH WHITE/BLACK
-            result = st.radio("Result", [f"⚪ {white} Wins", "🤝 Draw", ⚫ f" {black} Wins"])
+            result = st.radio("Result", [f"{white} Wins", "Draw", f"{black} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
@@ -241,7 +240,7 @@ elif page == "Log a Match":
                 b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
                 
                 # Check the dynamic string for the winner
-                score = 1 if result == f"⚪ {white} Wins" else (0.5 if result == "🤝 Draw" else 0)
+                score = 1 if result == f"{white} Wins" else (0.5 if result == "Draw" else 0)
                 new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
                 
                 players_df.at[w_idx, 'ELO'] = new_w_elo
