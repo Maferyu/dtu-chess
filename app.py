@@ -78,11 +78,17 @@ if st.sidebar.button("🔄 Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    col1, col2 = st.columns([2, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
         st.markdown("<h2 style='padding-top: 0px;'>Club Standings</h2>", unsafe_allow_html=True)
     with col2:
-        tc_filter = st.selectbox("Filter History", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+        tc_filter = st.selectbox("Time Control", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+    with col3:
+        # Dynamically create the list of players for the filter
+        player_list = ["All Players"]
+        if not players_df.empty:
+            player_list += sorted(players_df['Name'].tolist())
+        player_filter = st.selectbox("Player", player_list)
     
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
@@ -103,11 +109,16 @@ if page == "Leaderboard":
     if not matches_df.empty:
         recent_matches = matches_df.copy()
         
+        # 1. Apply Time Control Filter
         if tc_filter != "All Matches" and "Time Control" in matches_df.columns:
             recent_matches = recent_matches[recent_matches["Time Control"] == tc_filter]
             
+        # 2. Apply Player Filter
+        if player_filter != "All Players":
+            recent_matches = recent_matches[(recent_matches["White"] == player_filter) | (recent_matches["Black"] == player_filter)]
+            
         if recent_matches.empty:
-            st.info(f"No {tc_filter} matches played yet.")
+            st.info("No matches found with these filters.")
         else:
             recent_matches.index = recent_matches.index + 1
             
@@ -221,7 +232,8 @@ elif page == "Log a Match":
         if white == black:
             st.error("A player cannot play against themselves!")
         else:
-            result = st.radio("Result", [f"{white} Wins", "Draw", f"{black} Wins"])
+            # DYNAMIC RADIO BUTTONS WITH WHITE/BLACK
+            result = st.radio("Result", [f"⚪ {white} Wins", "🤝 Draw", f"⚫ {black} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
@@ -240,7 +252,7 @@ elif page == "Log a Match":
                 b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
                 
                 # Check the dynamic string for the winner
-                score = 1 if result == f"{white} Wins" else (0.5 if result == "Draw" else 0)
+                score = 1 if result == f"⚪ {white} Wins" else (0.5 if result == "🤝 Draw" else 0)
                 new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
                 
                 players_df.at[w_idx, 'ELO'] = new_w_elo
@@ -259,7 +271,7 @@ elif page == "Log a Match":
                     "Result": db_result,
                     "Event": event,
                     "Time Control": time_control,
-                    "PGN": pgn_input.strip() if pgn_input else ""
+                    "PGN": pgn_input.strip() if pgn_input else "None"
                 }])
                 updated_matches = pd.concat([matches_df, new_match], ignore_index=True)
                 
