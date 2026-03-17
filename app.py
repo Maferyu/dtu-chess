@@ -59,6 +59,15 @@ players_df = conn.read(worksheet="players", ttl="10m").dropna(how="all")
 matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
 posts_df = conn.read(worksheet="posts", ttl="10m").dropna(how="all")
 
+# Load dynamic events list
+try:
+    events_df = conn.read(worksheet="events", ttl="10m").dropna(how="all")
+    events_list = events_df['Event Name'].tolist()
+except Exception:
+    # Fallback just in case the Google Sheet tab hasn't been created yet
+    events_df = pd.DataFrame(columns=["Event Name"])
+    events_list = ["Casual", "Spring Round Robin"]
+
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", [
     "Leaderboard", 
@@ -133,84 +142,91 @@ if page == "Leaderboard":
 
 # --- PAGE 2: TOURNAMENT STANDINGS ---
 elif page == "Tournament Standings":
-    st.markdown("<h2>Spring Round Robin</h2>", unsafe_allow_html=True)
+    st.markdown("<h2>Tournament Standings</h2>", unsafe_allow_html=True)
     
-    st.markdown("""
-    **Rules:**
-    | Result | Points |
-    | :--- | :--- |
-    | **Win** | 3 |
-    | **Draw** | 1 |
-    | **Loss** | 0 |
-    """)
-    st.markdown("---")
+    # Filter out Casual games so we only show real tournaments
+    tourney_options = [e for e in events_list if e != "Casual"]
     
-    tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups"])
-    
-    with tab_standings:
-        if matches_df.empty or "Event" not in matches_df.columns:
-            st.info("No tournament matches recorded yet.")
-        else:
-            tourney_matches = matches_df[matches_df["Event"] == "Spring Round Robin"]
-            
-            if tourney_matches.empty:
-                st.info("The Spring Round Robin hasn't started yet! Log a match under this event to see standings.")
-            else:
-                points = {}
-                played = {}
-                
-                for idx, row in tourney_matches.iterrows():
-                    w = row.get("White", row.get("Player 1"))
-                    b = row.get("Black", row.get("Player 2"))
-                    res = row["Result"]
-                    
-                    if w not in points: points[w] = 0; played[w] = 0
-                    if b not in points: points[b] = 0; played[b] = 0
-                    
-                    played[w] += 1
-                    played[b] += 1
-                    
-                    # Logic updated to handle dynamic names
-                    if f"{w} Wins" in res or "1-0" in res or "White Wins" in res:
-                        points[w] += 3
-                    elif f"{b} Wins" in res or "0-1" in res or "Black Wins" in res:
-                        points[b] += 3
-                    else:
-                        points[w] += 1; points[b] += 1
-                        
-                tourney_df = pd.DataFrame({
-                    "Player": list(points.keys()),
-                    "Points": list(points.values()),
-                    "Matches Played": [played[p] for p in points.keys()]
-                })
-                
-                tourney_df = tourney_df.sort_values(by=["Points", "Matches Played"], ascending=[False, True]).reset_index(drop=True)
-                tourney_df.index = tourney_df.index + 1
-                
-                st.dataframe(tourney_df, use_container_width=True)
-
-    with tab_schedule:
-        st.write("Theoretical matchups based on currently registered players.")
-        players = players_df['Name'].tolist()
+    if not tourney_options:
+        st.info("No tournaments have been created yet. Go to 'Manage Data' to add one!")
+    else:
+        selected_tourney = st.selectbox("Select Event", tourney_options)
         
-        if len(players) < 2:
-            st.warning("Not enough players to generate a schedule.")
-        else:
-            if len(players) % 2 != 0:
-                players.append("- BYE (Rest Week) -")
+        st.markdown("""
+        **Rules:**
+        | Result | Points |
+        | :--- | :--- |
+        | **Win** | 3 |
+        | **Draw** | 1 |
+        | **Loss** | 0 |
+        """)
+        st.markdown("---")
+        
+        tab_standings, tab_schedule = st.tabs(["📊 Standings", "📅 Weekly Matchups"])
+        
+        with tab_standings:
+            if matches_df.empty or "Event" not in matches_df.columns:
+                st.info("No matches recorded yet.")
+            else:
+                tourney_matches = matches_df[matches_df["Event"] == selected_tourney]
                 
-            n = len(players)
-            return_players = list(players)
+                if tourney_matches.empty:
+                    st.info(f"No matches have been logged for {selected_tourney} yet.")
+                else:
+                    points = {}
+                    played = {}
+                    
+                    for idx, row in tourney_matches.iterrows():
+                        w = row.get("White", row.get("Player 1"))
+                        b = row.get("Black", row.get("Player 2"))
+                        res = row["Result"]
+                        
+                        if w not in points: points[w] = 0; played[w] = 0
+                        if b not in points: points[b] = 0; played[b] = 0
+                        
+                        played[w] += 1
+                        played[b] += 1
+                        
+                        if f"{w} Wins" in res or "1-0" in res or "White Wins" in res:
+                            points[w] += 3
+                        elif f"{b} Wins" in res or "0-1" in res or "Black Wins" in res:
+                            points[b] += 3
+                        else:
+                            points[w] += 1; points[b] += 1
+                            
+                    tourney_df = pd.DataFrame({
+                        "Player": list(points.keys()),
+                        "Points": list(points.values()),
+                        "Matches Played": [played[p] for p in points.keys()]
+                    })
+                    
+                    tourney_df = tourney_df.sort_values(by=["Points", "Matches Played"], ascending=[False, True]).reset_index(drop=True)
+                    tourney_df.index = tourney_df.index + 1
+                    
+                    st.dataframe(tourney_df, use_container_width=True)
+
+        with tab_schedule:
+            st.write("Theoretical matchups based on currently registered players.")
+            players = players_df['Name'].tolist()
             
-            for fixture in range(1, n):
-                st.markdown(f"<h3>Week {fixture}</h3>", unsafe_allow_html=True)
-                for i in range(n // 2):
-                    p1 = return_players[i]
-                    p2 = return_players[n - 1 - i]
-                    st.markdown(f"♟️ **{p1}** vs **{p2}**")
+            if len(players) < 2:
+                st.warning("Not enough players to generate a schedule.")
+            else:
+                if len(players) % 2 != 0:
+                    players.append("- BYE (Rest Week) -")
+                    
+                n = len(players)
+                return_players = list(players)
                 
-                return_players.insert(1, return_players.pop())
-                st.divider()
+                for fixture in range(1, n):
+                    st.markdown(f"<h3>Week {fixture}</h3>", unsafe_allow_html=True)
+                    for i in range(n // 2):
+                        p1 = return_players[i]
+                        p2 = return_players[n - 1 - i]
+                        st.markdown(f"♟️ **{p1}** vs **{p2}**")
+                    
+                    return_players.insert(1, return_players.pop())
+                    st.divider()
 
 # --- PAGE 3: LOG A MATCH ---
 elif page == "Log a Match":
@@ -232,16 +248,15 @@ elif page == "Log a Match":
         if white == black:
             st.error("A player cannot play against themselves!")
         else:
-            # DYNAMIC RADIO BUTTONS WITH WHITE/BLACK
             result = st.radio("Result", [f"⚪ {white} Wins", "🤝 Draw", f"⚫ {black} Wins"])
             
             col3, col4 = st.columns(2)
             with col3:
-                event = st.selectbox("Event", ["Casual", "Spring Round Robin"])
+                # Dynamically loads events from the database
+                event = st.selectbox("Event", events_list)
             with col4:
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
                 
-            # Optional PGN saving
             pgn_input = st.text_area("Save Game (Optional PGN)", placeholder="[Site \"Chess.com\"]\n[Result \"*\"]\n1. e4 e6 2. d4 d5...", height=100)
             
             if st.button("Submit Result"):
@@ -251,7 +266,6 @@ elif page == "Log a Match":
                 w_elo = float(str(players_df.at[w_idx, 'ELO']).replace(',', '.'))
                 b_elo = float(str(players_df.at[b_idx, 'ELO']).replace(',', '.'))
                 
-                # Check the dynamic string for the winner
                 score = 1 if result == f"⚪ {white} Wins" else (0.5 if result == "🤝 Draw" else 0)
                 new_w_elo, new_b_elo = calculate_elo(w_elo, b_elo, score)
                 
@@ -261,7 +275,6 @@ elif page == "Log a Match":
                 players_df.at[b_idx, 'ELO'] = new_b_elo
                 players_df.at[b_idx, 'Matches'] = int(players_df.at[b_idx, 'Matches']) + 1
                 
-                # Clean up the string for the database
                 db_result = f"{white} Wins" if score == 1 else ("Draw" if score == 0.5 else f"{black} Wins")
                 
                 new_match = pd.DataFrame([{
@@ -286,7 +299,6 @@ elif page == "Community Board":
     st.markdown("<h2>💬 Community Board</h2>", unsafe_allow_html=True)
     st.write("Post club updates, challenge people, or talk trash (respectfully).")
     
-    # Create new post
     with st.expander("📝 Write a new post"):
         if players_df.empty:
             st.warning("Add players to the database first!")
@@ -295,7 +307,7 @@ elif page == "Community Board":
             content = st.text_area("What's on your mind?")
             if st.button("Post Message"):
                 if content:
-                    new_id = str(uuid.uuid4())[:8] # Generate a short random ID
+                    new_id = str(uuid.uuid4())[:8] 
                     new_post = pd.DataFrame([{
                         "ID": new_id, 
                         "Author": author, 
@@ -317,11 +329,9 @@ elif page == "Community Board":
 
     st.markdown("---")
     
-    # Display posts
     if posts_df.empty:
         st.info("No posts yet. Be the first to say hi!")
     else:
-        # Loop through posts in reverse chronological order
         for idx, row in posts_df.iloc[::-1].iterrows():
             with st.container(border=True):
                 st.markdown(f"**{row['Author']}** • *{row['Date']}*")
@@ -367,13 +377,34 @@ elif page == "Add New Player":
 # --- PAGE 6: MANAGE DATA ---
 elif page == "Manage Data":
     st.markdown("<h2>🛠️ Manage Data</h2>", unsafe_allow_html=True)
-    st.write("Fix typos or delete mistakes here.")
+    st.write("Fix typos, delete mistakes, or create new events here.")
     
     password = st.text_input("Club Password to unlock features", type="password")
     
     if password == "dtu2026":
+        
         st.markdown("---")
-        st.markdown("<h3>1. Rename a Player</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>1. Create a New Event</h3>", unsafe_allow_html=True)
+        new_event = st.text_input("Event Name (e.g., Fall Championship 2026)")
+        
+        if st.button("Create Event"):
+            if new_event and new_event not in events_list:
+                new_event_df = pd.DataFrame([{"Event Name": new_event}])
+                
+                if events_df.empty:
+                    updated_events = new_event_df
+                else:
+                    updated_events = pd.concat([events_df, new_event_df], ignore_index=True)
+                    
+                conn.update(worksheet="events", data=updated_events)
+                st.cache_data.clear()
+                st.success(f"Successfully created tournament: {new_event}!")
+                st.rerun()
+            elif new_event in events_list:
+                st.error("That event name already exists!")
+                
+        st.markdown("---")
+        st.markdown("<h3>2. Rename a Player</h3>", unsafe_allow_html=True)
         player_to_rename = st.selectbox("Select Player", players_df['Name'].tolist(), key="rename_select")
         new_name = st.text_input("Type Correct Name")
         
@@ -382,15 +413,12 @@ elif page == "Manage Data":
                 players_df.loc[players_df['Name'] == player_to_rename, 'Name'] = new_name
                 
                 if not matches_df.empty:
-                    # Handle updating columns
                     if 'White' in matches_df.columns:
                         matches_df.loc[matches_df['White'] == player_to_rename, 'White'] = new_name
                         matches_df.loc[matches_df['Black'] == player_to_rename, 'Black'] = new_name
                     if 'Player 1' in matches_df.columns:
                         matches_df.loc[matches_df['Player 1'] == player_to_rename, 'Player 1'] = new_name
                         matches_df.loc[matches_df['Player 2'] == player_to_rename, 'Player 2'] = new_name
-                    
-                    # Update dynamic result strings if they contained the old name
                     matches_df.loc[matches_df['Result'] == f"{player_to_rename} Wins", 'Result'] = f"{new_name} Wins"
                 
                 if not posts_df.empty:
@@ -407,7 +435,7 @@ elif page == "Manage Data":
                 st.error("That name already exists!")
                 
         st.markdown("---")
-        st.markdown("<h3>2. Delete a Player</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>3. Delete a Player</h3>", unsafe_allow_html=True)
         player_to_delete = st.selectbox("Select Player", players_df['Name'].tolist(), key="delete_select")
         
         if st.button("Delete Player"):
@@ -418,10 +446,8 @@ elif page == "Manage Data":
             st.rerun()
 
         st.markdown("---")
-        st.markdown("<h3>3. Delete a Match Record</h3>", unsafe_allow_html=True)
+        st.markdown("<h3>4. Delete a Match Record</h3>", unsafe_allow_html=True)
         if not matches_df.empty:
-            
-            # Helper to display match data safely
             def format_match_row(row):
                 p1 = row.get('White', row.get('Player 1', 'Unknown'))
                 p2 = row.get('Black', row.get('Player 2', 'Unknown'))
