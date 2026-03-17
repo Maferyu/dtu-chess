@@ -18,7 +18,7 @@ def calculate_elo(r_white, r_black, score_white):
     return round(new_r_white, 1), round(new_r_black, 1)
 
 # --- UI & DATABASE SETUP ---
-st.set_page_config(page_title="DTU Chess Club", page_icon="DTU", layout="wide")
+st.set_page_config(page_title="DTU Chess Club", page_icon="♟️", layout="wide")
 
 # Custom CSS for Professional UI
 st.markdown("""
