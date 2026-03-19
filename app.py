@@ -102,17 +102,17 @@ if st.sidebar.button("Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    # Updated to 4 columns to fit the new Event filter!
+    # Updated to 4 columns to fit the new Event filter, ordered Player -> Time -> Event
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     with col1:
         st.markdown("<h2 style='padding-top: 0px;'>Club Standings</h2>", unsafe_allow_html=True)
     with col2:
-        tc_filter = st.selectbox("Time Control", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
-    with col3:
-        event_filter = st.selectbox("Event", ["All Events"] + dropdown_events)
-    with col4:
         player_list = ["All Players"] + sorted_player_names
         player_filter = st.selectbox("Player", player_list)
+    with col3:
+        tc_filter = st.selectbox("Time Control", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
+    with col4:
+        event_filter = st.selectbox("Event", ["All Events"] + dropdown_events)
     
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
