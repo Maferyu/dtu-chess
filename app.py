@@ -102,7 +102,7 @@ if st.sidebar.button("Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    # Updated to 4 columns to fit the new Event filter, ordered Player -> Time -> Event
+    # Ordered: Player -> Time Control -> Event
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     with col1:
         st.markdown("<h2 style='padding-top: 0px;'>Club Standings</h2>", unsafe_allow_html=True)
@@ -123,15 +123,12 @@ if page == "Leaderboard":
         # Display ELO and Matches
         leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
         
-        # Convert Matches to integers for clean display
-        leaderboard['Matches'] = pd.to_numeric(leaderboard['Matches']).fillna(0).astype(int)
+        # Trick Streamlit by converting numbers to strings so they naturally align to the left!
+        display_leaderboard = leaderboard.copy()
+        display_leaderboard['ELO'] = display_leaderboard['ELO'].apply(lambda x: f"{float(x):.1f}")
+        display_leaderboard['Matches'] = display_leaderboard['Matches'].apply(lambda x: str(int(float(x))) if pd.notnull(x) else "0")
         
-        # Force left alignment on the dataframe
-        st.dataframe(
-            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'})
-                       .set_properties(**{'text-align': 'left'}), 
-            use_container_width=True
-        )
+        st.dataframe(display_leaderboard, use_container_width=True)
         
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<h2 style='padding-top: 0px;'>Recent Matches</h2>", unsafe_allow_html=True)
@@ -226,11 +223,12 @@ elif page == "Tournament Standings":
                     tourney_df = tourney_df.sort_values(by=["Points", "Games Played"], ascending=[False, True]).reset_index(drop=True)
                     tourney_df.index = tourney_df.index + 1
                     
-                    # Force left alignment here as well
-                    st.dataframe(
-                        tourney_df.style.set_properties(**{'text-align': 'left'}), 
-                        use_container_width=True
-                    )
+                    # Trick Streamlit by converting numbers to strings for left alignment
+                    display_tourney = tourney_df.copy()
+                    display_tourney['Points'] = display_tourney['Points'].astype(str)
+                    display_tourney['Games Played'] = display_tourney['Games Played'].astype(str)
+                    
+                    st.dataframe(display_tourney, use_container_width=True)
 
         with tab_schedule:
             st.write("Theoretical matchups based on currently registered players.")
