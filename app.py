@@ -63,13 +63,25 @@ posts_df = conn.read(worksheet="posts", ttl="10m").dropna(how="all")
 if not players_df.empty and "Matches" not in players_df.columns:
     players_df["Matches"] = 0
 
+# --- HELPER VARIABLES (Sorting & Events) ---
+# Create a proper case-insensitive alphabetical list of players
+if not players_df.empty:
+    sorted_player_names = sorted(players_df['Name'].dropna().astype(str).tolist(), key=str.casefold)
+else:
+    sorted_player_names = []
+
 # Load dynamic events list
 try:
     events_df = conn.read(worksheet="events", ttl="10m").dropna(how="all")
-    events_list = events_df['Event Name'].tolist()
+    events_list = events_df['Event Name'].dropna().astype(str).tolist()
 except Exception:
     events_df = pd.DataFrame(columns=["Event Name", "Creation Date"])
     events_list = ["Casual", "Spring Round Robin"]
+
+# Create a dropdown list where "Casual" is ALWAYS first, followed by newest tournaments
+tournaments_only = [e for e in events_list if e != "Casual"]
+dropdown_events = ["Casual"] + list(reversed(tournaments_only))
+
 
 # Sidebar Navigation
 page = st.sidebar.radio("Navigation", [
@@ -90,15 +102,16 @@ if st.sidebar.button("Refresh Data"):
 # --- PAGE 1: LEADERBOARD ---
 if page == "Leaderboard":
     
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Updated to 4 columns to fit the new Event filter!
+    col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     with col1:
         st.markdown("<h2 style='padding-top: 0px;'>Club Standings</h2>", unsafe_allow_html=True)
     with col2:
         tc_filter = st.selectbox("Time Control", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
     with col3:
-        player_list = ["All Players"]
-        if not players_df.empty:
-            player_list += sorted(players_df['Name'].tolist())
+        event_filter = st.selectbox("Event", ["All Events"] + dropdown_events)
+    with col4:
+        player_list = ["All Players"] + sorted_player_names
         player_filter = st.selectbox("Player", player_list)
     
     if players_df.empty:
@@ -124,9 +137,15 @@ if page == "Leaderboard":
     if not matches_df.empty:
         recent_matches = matches_df.copy()
         
+        # 1. Apply Time Control Filter
         if tc_filter != "All Matches" and "Time Control" in matches_df.columns:
             recent_matches = recent_matches[recent_matches["Time Control"] == tc_filter]
             
+        # 2. Apply Event Filter
+        if event_filter != "All Events" and "Event" in matches_df.columns:
+            recent_matches = recent_matches[recent_matches["Event"] == event_filter]
+            
+        # 3. Apply Player Filter
         if player_filter != "All Players":
             recent_matches = recent_matches[(recent_matches["White"] == player_filter) | (recent_matches["Black"] == player_filter)]
             
@@ -138,7 +157,7 @@ if page == "Leaderboard":
             if "PGN" in recent_matches.columns:
                 column_config["PGN"] = st.column_config.TextColumn("Saved Game (PGN)", width="large")
                 
-            st.dataframe(recent_matches.iloc[::-1].head(10), use_container_width=True, column_config=column_config)
+            st.dataframe(recent_matches.iloc[::-1].head(15), use_container_width=True, column_config=column_config)
     else:
         st.info("No matches played yet.")
 
@@ -146,7 +165,8 @@ if page == "Leaderboard":
 elif page == "Tournament Standings":
     st.markdown("<h2>Tournament Standings</h2>", unsafe_allow_html=True)
     
-    tourney_options = [e for e in events_list if e != "Casual"][::-1]
+    # Use the reversed tournaments list (excluding Casual)
+    tourney_options = list(reversed(tournaments_only))
     
     if not tourney_options:
         st.info("No tournaments have been created yet. Go to 'Manage Data' to add one!")
@@ -208,7 +228,7 @@ elif page == "Tournament Standings":
 
         with tab_schedule:
             st.write("Theoretical matchups based on currently registered players.")
-            players = sorted(players_df['Name'].tolist())
+            players = list(sorted_player_names)
             
             if len(players) < 2:
                 st.warning("Not enough players to generate a schedule.")
@@ -236,16 +256,13 @@ elif page == "Log a Match":
     if len(players_df) < 2:
         st.warning("You need at least 2 players in the database to log a match.")
     else:
-        # ALPHABETICAL SORTING
-        player_names = sorted(players_df['Name'].tolist())
-        
         match_date = st.date_input("Date of the Match", datetime.now())
         
         col1, col2 = st.columns(2)
         with col1:
-            white = st.selectbox("White Player", player_names)
+            white = st.selectbox("White Player", sorted_player_names)
         with col2:
-            black = st.selectbox("Black Player", player_names, index=1 if len(player_names) > 1 else 0)
+            black = st.selectbox("Black Player", sorted_player_names, index=1 if len(sorted_player_names) > 1 else 0)
         
         if white == black:
             st.error("A player cannot play against themselves!")
@@ -254,7 +271,8 @@ elif page == "Log a Match":
             
             col3, col4 = st.columns(2)
             with col3:
-                event = st.selectbox("Event", events_list[::-1])
+                # Uses the custom sorting: Casual first, then newest events
+                event = st.selectbox("Event", dropdown_events)
             with col4:
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
                 
@@ -305,8 +323,7 @@ elif page == "Community Board":
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
-            # ALPHABETICAL SORTING
-            author = st.selectbox("Who are you?", sorted(players_df['Name'].tolist()))
+            author = st.selectbox("Who are you?", sorted_player_names)
             content = st.text_area("What's on your mind?")
             if st.button("Post Message"):
                 if content:
@@ -361,13 +378,14 @@ elif page == "Add New Player":
     starting_elo = st.number_input("Starting ELO", value=1200)
     
     if st.button("Add Player"):
-        if new_name in players_df['Name'].values:
+        # Make case-insensitive check to prevent duplicating names
+        if new_name.lower() in [name.lower() for name in players_df['Name'].values]:
             st.error("Player already exists!")
         elif new_name:
             new_player = pd.DataFrame([{
                 "Name": new_name, 
                 "ELO": starting_elo, 
-                "Matches": 0,  # Now explicitly starts at 0
+                "Matches": 0,
                 "Creation Date": datetime.now().strftime("%Y-%m-%d")
             }])
             
@@ -391,7 +409,8 @@ elif page == "Manage Data":
         new_event = st.text_input("Event Name (e.g., Fall Championship 2026)")
         
         if st.button("Create Event"):
-            if new_event and new_event not in events_list:
+            # Case insensitive check for events too
+            if new_event and new_event.lower() not in [e.lower() for e in events_list]:
                 new_event_df = pd.DataFrame([{
                     "Event Name": new_event,
                     "Creation Date": datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -406,17 +425,16 @@ elif page == "Manage Data":
                 st.cache_data.clear()
                 st.success(f"Successfully created tournament: {new_event}!")
                 st.rerun()
-            elif new_event in events_list:
+            elif new_event.lower() in [e.lower() for e in events_list]:
                 st.error("That event name already exists!")
                 
         st.markdown("---")
         st.markdown("<h3>2. Rename a Player</h3>", unsafe_allow_html=True)
-        # ALPHABETICAL SORTING
-        player_to_rename = st.selectbox("Select Player", sorted(players_df['Name'].tolist()), key="rename_select")
+        player_to_rename = st.selectbox("Select Player", sorted_player_names, key="rename_select")
         new_name = st.text_input("Type Correct Name")
         
         if st.button("Rename Player"):
-            if new_name and new_name not in players_df['Name'].values:
+            if new_name and new_name.lower() not in [name.lower() for name in players_df['Name'].values]:
                 players_df.loc[players_df['Name'] == player_to_rename, 'Name'] = new_name
                 
                 if not matches_df.empty:
@@ -438,13 +456,12 @@ elif page == "Manage Data":
                 st.cache_data.clear()
                 st.success(f"Successfully renamed to {new_name}!")
                 st.rerun()
-            elif new_name in players_df['Name'].values:
+            elif new_name.lower() in [name.lower() for name in players_df['Name'].values]:
                 st.error("That name already exists!")
                 
         st.markdown("---")
         st.markdown("<h3>3. Delete a Player</h3>", unsafe_allow_html=True)
-        # ALPHABETICAL SORTING
-        player_to_delete = st.selectbox("Select Player", sorted(players_df['Name'].tolist()), key="delete_select")
+        player_to_delete = st.selectbox("Select Player", sorted_player_names, key="delete_select")
         
         if st.button("Delete Player"):
             players_df = players_df[players_df['Name'] != player_to_delete]
