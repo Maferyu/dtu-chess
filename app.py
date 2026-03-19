@@ -280,7 +280,7 @@ elif page == "Log a Match":
             with col4:
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
                 
-            pgn_input = st.text_area("Save Game (Optional PGN)", placeholder="[Site \"Chess.com\"]\n[Result \"*\"]\n1. e4 e6 2. d4 d5...", height=100)
+            pgn_input = st.text_area("Save Game (Optional PGN)", placeholder="1. e4 e6 2. d4 d5...", height=100)
             
             if st.button("Submit Result"):
                 w_idx = players_df.index[players_df['Name'] == white].tolist()[0]
