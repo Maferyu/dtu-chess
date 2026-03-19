@@ -126,8 +126,10 @@ if page == "Leaderboard":
         # Convert Matches to integers for clean display
         leaderboard['Matches'] = pd.to_numeric(leaderboard['Matches']).fillna(0).astype(int)
         
+        # Force left alignment on the dataframe
         st.dataframe(
-            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
+            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'})
+                       .set_properties(**{'text-align': 'left'}), 
             use_container_width=True
         )
         
@@ -224,7 +226,11 @@ elif page == "Tournament Standings":
                     tourney_df = tourney_df.sort_values(by=["Points", "Games Played"], ascending=[False, True]).reset_index(drop=True)
                     tourney_df.index = tourney_df.index + 1
                     
-                    st.dataframe(tourney_df, use_container_width=True)
+                    # Force left alignment here as well
+                    st.dataframe(
+                        tourney_df.style.set_properties(**{'text-align': 'left'}), 
+                        use_container_width=True
+                    )
 
         with tab_schedule:
             st.write("Theoretical matchups based on currently registered players.")
