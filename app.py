@@ -59,12 +59,15 @@ players_df = conn.read(worksheet="players", ttl="10m").dropna(how="all")
 matches_df = conn.read(worksheet="matches", ttl="10m").dropna(how="all")
 posts_df = conn.read(worksheet="posts", ttl="10m").dropna(how="all")
 
+# Failsafe: If "Matches" column was deleted, recreate it automatically
+if not players_df.empty and "Matches" not in players_df.columns:
+    players_df["Matches"] = 0
+
 # Load dynamic events list
 try:
     events_df = conn.read(worksheet="events", ttl="10m").dropna(how="all")
     events_list = events_df['Event Name'].tolist()
 except Exception:
-    # Fallback just in case the Google Sheet tab hasn't been created yet
     events_df = pd.DataFrame(columns=["Event Name", "Creation Date"])
     events_list = ["Casual", "Spring Round Robin"]
 
@@ -93,7 +96,6 @@ if page == "Leaderboard":
     with col2:
         tc_filter = st.selectbox("Time Control", ["All Matches", "Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
     with col3:
-        # Dynamically create the list of players for the filter
         player_list = ["All Players"]
         if not players_df.empty:
             player_list += sorted(players_df['Name'].tolist())
@@ -102,13 +104,17 @@ if page == "Leaderboard":
     if players_df.empty:
         st.info("No players yet! Add some players to get started.")
     else:
-        # General ELO for everyone
         leaderboard = players_df.sort_values(by="ELO", ascending=False).reset_index(drop=True)
         leaderboard.index = leaderboard.index + 1
-        leaderboard = leaderboard[['Name', 'ELO']]
+        
+        # Display ELO and Matches
+        leaderboard = leaderboard[['Name', 'ELO', 'Matches']]
+        
+        # Convert Matches to integers for clean display
+        leaderboard['Matches'] = pd.to_numeric(leaderboard['Matches']).fillna(0).astype(int)
         
         st.dataframe(
-            leaderboard.style.format({'ELO': '{:.1f}'}), 
+            leaderboard.style.format({'ELO': '{:.1f}', 'Matches': '{:.0f}'}), 
             use_container_width=True
         )
         
@@ -118,11 +124,9 @@ if page == "Leaderboard":
     if not matches_df.empty:
         recent_matches = matches_df.copy()
         
-        # 1. Apply Time Control Filter
         if tc_filter != "All Matches" and "Time Control" in matches_df.columns:
             recent_matches = recent_matches[recent_matches["Time Control"] == tc_filter]
             
-        # 2. Apply Player Filter
         if player_filter != "All Players":
             recent_matches = recent_matches[(recent_matches["White"] == player_filter) | (recent_matches["Black"] == player_filter)]
             
@@ -130,8 +134,6 @@ if page == "Leaderboard":
             st.info("No matches found with these filters.")
         else:
             recent_matches.index = recent_matches.index + 1
-            
-            # Configure dataframe to display PGN nicely if it exists
             column_config = {}
             if "PGN" in recent_matches.columns:
                 column_config["PGN"] = st.column_config.TextColumn("Saved Game (PGN)", width="large")
@@ -144,7 +146,6 @@ if page == "Leaderboard":
 elif page == "Tournament Standings":
     st.markdown("<h2>Tournament Standings</h2>", unsafe_allow_html=True)
     
-    # Filter out Casual games, and REVERSE the list so the newest event is at the top/default
     tourney_options = [e for e in events_list if e != "Casual"][::-1]
     
     if not tourney_options:
@@ -207,7 +208,7 @@ elif page == "Tournament Standings":
 
         with tab_schedule:
             st.write("Theoretical matchups based on currently registered players.")
-            players = players_df['Name'].tolist()
+            players = sorted(players_df['Name'].tolist())
             
             if len(players) < 2:
                 st.warning("Not enough players to generate a schedule.")
@@ -235,7 +236,8 @@ elif page == "Log a Match":
     if len(players_df) < 2:
         st.warning("You need at least 2 players in the database to log a match.")
     else:
-        player_names = players_df['Name'].tolist()
+        # ALPHABETICAL SORTING
+        player_names = sorted(players_df['Name'].tolist())
         
         match_date = st.date_input("Date of the Match", datetime.now())
         
@@ -252,7 +254,6 @@ elif page == "Log a Match":
             
             col3, col4 = st.columns(2)
             with col3:
-                # Reversing the events list here too, so the newest event is always at the top!
                 event = st.selectbox("Event", events_list[::-1])
             with col4:
                 time_control = st.selectbox("Time Control", ["Blitz", "Rapid", "Bullet", "Classical", "Untimed/Other"])
@@ -271,6 +272,10 @@ elif page == "Log a Match":
                 
                 players_df.at[w_idx, 'ELO'] = new_w_elo
                 players_df.at[b_idx, 'ELO'] = new_b_elo
+                
+                # Increment matches safely
+                players_df.at[w_idx, 'Matches'] = int(pd.to_numeric(players_df.at[w_idx, 'Matches'], errors='coerce')) + 1
+                players_df.at[b_idx, 'Matches'] = int(pd.to_numeric(players_df.at[b_idx, 'Matches'], errors='coerce')) + 1
                 
                 db_result = f"{white} Wins" if score == 1 else ("Draw" if score == 0.5 else f"{black} Wins")
                 
@@ -300,7 +305,8 @@ elif page == "Community Board":
         if players_df.empty:
             st.warning("Add players to the database first!")
         else:
-            author = st.selectbox("Who are you?", players_df['Name'].tolist())
+            # ALPHABETICAL SORTING
+            author = st.selectbox("Who are you?", sorted(players_df['Name'].tolist()))
             content = st.text_area("What's on your mind?")
             if st.button("Post Message"):
                 if content:
@@ -361,6 +367,7 @@ elif page == "Add New Player":
             new_player = pd.DataFrame([{
                 "Name": new_name, 
                 "ELO": starting_elo, 
+                "Matches": 0,  # Now explicitly starts at 0
                 "Creation Date": datetime.now().strftime("%Y-%m-%d")
             }])
             
@@ -385,7 +392,6 @@ elif page == "Manage Data":
         
         if st.button("Create Event"):
             if new_event and new_event not in events_list:
-                # Now automatically includes the date and time of creation
                 new_event_df = pd.DataFrame([{
                     "Event Name": new_event,
                     "Creation Date": datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -405,7 +411,8 @@ elif page == "Manage Data":
                 
         st.markdown("---")
         st.markdown("<h3>2. Rename a Player</h3>", unsafe_allow_html=True)
-        player_to_rename = st.selectbox("Select Player", players_df['Name'].tolist(), key="rename_select")
+        # ALPHABETICAL SORTING
+        player_to_rename = st.selectbox("Select Player", sorted(players_df['Name'].tolist()), key="rename_select")
         new_name = st.text_input("Type Correct Name")
         
         if st.button("Rename Player"):
@@ -436,7 +443,8 @@ elif page == "Manage Data":
                 
         st.markdown("---")
         st.markdown("<h3>3. Delete a Player</h3>", unsafe_allow_html=True)
-        player_to_delete = st.selectbox("Select Player", players_df['Name'].tolist(), key="delete_select")
+        # ALPHABETICAL SORTING
+        player_to_delete = st.selectbox("Select Player", sorted(players_df['Name'].tolist()), key="delete_select")
         
         if st.button("Delete Player"):
             players_df = players_df[players_df['Name'] != player_to_delete]
